@@ -67,16 +67,16 @@ const TRACK_LEN = (PRIMS.length - 1) * SPACING;
 
 /* ---------------- PARAMS ---------------- */
 const PARAMS = {
-  bloomStrength: 0.25,
-  bloomRadius: 0.75,
-  bloomThreshold: 0.6,
-  camEase: 0.018,
+  bloomStrength: 0.40,
+  bloomRadius: 0.42,
+  bloomThreshold: 0.28,
+  camEase: 0.08,
   idleFloat: 0.08,
-  idleSpin: 0.35,
-  focusBounce: 0.22,
-  ringHue: 215,
+  idleSpin: 1.40,
+  focusBounce: 0.40,
+  ringHue: 209,
   fogNear: 30,
-  autoOrbit: false,
+  autoOrbit: true,
 };
 const DEFAULTS = { ...PARAMS };
 
@@ -1355,6 +1355,7 @@ paramsBody.querySelectorAll("button[data-act]").forEach(btn => {
     } else if (act === "orbit"){
       PARAMS.autoOrbit = !PARAMS.autoOrbit;
       btn.style.background = PARAMS.autoOrbit ? "var(--acid)" : "";
+      btn.style.color = PARAMS.autoOrbit ? "var(--paper)" : "";
     } else if (act === "randomize"){
       paramsBody.querySelectorAll("input[type=range]").forEach(inp => {
         const min = parseFloat(inp.min), max = parseFloat(inp.max);
@@ -1364,6 +1365,14 @@ paramsBody.querySelectorAll("button[data-act]").forEach(btn => {
     }
   });
 });
+// reflect initial AUTO-ORBIT state in button styling
+{
+  const orbitBtn = paramsBody.querySelector('button[data-act="orbit"]');
+  if (orbitBtn && PARAMS.autoOrbit){
+    orbitBtn.style.background = "var(--acid)";
+    orbitBtn.style.color = "var(--paper)";
+  }
+}
 paramsToggle.addEventListener("click", () => {
   paramsEl.classList.toggle("collapsed");
   paramsToggle.textContent = paramsEl.classList.contains("collapsed") ? "+" : "−";
