@@ -1494,10 +1494,11 @@ function buildFanInterior(prim){
 /* animate interior reactive effects (fan rays react to look direction + time) */
 const _fanTmp = new THREE.Vector3();
 function updateInteriorFx(dt){
-  // raymarched metaball walls — shared, slowed time (70% slower)
+  // raymarched metaball dome — slowed time + keep it centred on the camera
   if (organicBlob && organicBlob.raymarch){
-    const t = performance.now() * 0.001 * 0.30;   // 0.30x => 70% slower motion
-    organicBlob.walls.forEach(mat => { mat.uniforms.uTime.value = t; });
+    const t = performance.now() * 0.001 * 0.12;   // 60% slower than the prior 0.30x
+    organicBlob.mat.uniforms.uTime.value = t;
+    organicBlob.dome.position.copy(camera.position);
   }
 
   // shared ambiance — descending beads + swaying tendrils
@@ -1746,14 +1747,15 @@ void main(){
    Rendered as a fullscreen triangle behind the interior; the tomb becomes a
    living tunnel of merging organic spheres. */
 const RAYMARCH_VERT = `
-varying vec2 vUv;
-void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+varying vec3 vDir;
+void main(){
+  vDir = position;                 // object-space dir from sphere centre
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
 const RAYMARCH_FRAG = `
 precision highp float;
 uniform float uTime;
-uniform float uAspect;
-uniform float uYaw;
-varying vec2 vUv;
+varying vec3 vDir;
 const int MAX_STEPS = 90;
 const int NUM_SPHERES = 12;
 float hash(float n){ return fract(sin(n*43758.5453123)); }
@@ -1800,76 +1802,53 @@ float trace(inout vec3 pos, vec3 dir, out vec3 normal){
   return float(steps)/float(MAX_STEPS);
 }
 void main(){
-  // each wall is a window into the shared field, looking out along its facing
-  vec2 uv = vUv - 0.5;
+  // immersive panorama: raymarch the field along this fragment's world direction
+  vec3 dir = normalize(vDir);
   vec3 opos = vec3(4.5, sin(uTime*0.4)*3.0 + 2.0, -7.0 + uTime*3.0);
   vec3 pos = opos;
-  vec3 dir = normalize(vec3(uv.x*uAspect, uv.y, 1.0));
-  float cy = cos(uYaw), sy = sin(uYaw);
-  dir.xz = mat2(cy, -sy, sy, cy) * dir.xz;     // rotate ray by wall facing
   vec3 normal;
   float steps = trace(pos, dir, normal);
   float occ = dfOcclusion(pos, normal);
   float fogAmt = 1.0 - exp(-distance(opos, pos)*0.01);
-  vec3 fogCol = vec3(0.2, 0.14, 0.18);
-  vec3 diffuse = vec3(0.4, 0.5, 0.6) * dot(normal, normalize(vec3(1.0, 0.3, -1.0)));
-  vec3 ambient = vec3(0.4, 0.2, 0.1);
-  vec3 color = (ambient + diffuse) * vec3(1.0 - steps) + pow(1.0 - occ, 1.5) * vec3(1.0, 0.9, 0.8) * 0.8;
-  color = mix(color, fogCol, fogAmt);
-  color = (1.0 - exp(-color * 1.5)) * 1.3;
-  gl_FragColor = vec4(color, 1.0);
+  // grayscale only
+  float fogL = 0.17;
+  float diffuse = 0.55 * dot(normal, normalize(vec3(1.0, 0.3, -1.0)));
+  float ambient = 0.28;
+  float lum = (ambient + diffuse) * (1.0 - steps) + pow(1.0 - occ, 1.5) * 0.85 * 0.8;
+  lum = mix(lum, fogL, fogAmt);
+  lum = (1.0 - exp(-lum * 1.5)) * 1.3;
+  gl_FragColor = vec4(vec3(clamp(lum, 0.0, 1.0)), 1.0);
 }`;
-
-function makeRaymarchWall(w, h, yaw){
-  const mat = new THREE.ShaderMaterial({
-    uniforms: {
-      uTime:   { value: 0 },
-      uAspect: { value: w / h },
-      uYaw:    { value: yaw },
-    },
-    vertexShader: RAYMARCH_VERT, fragmentShader: RAYMARCH_FRAG,
-    side: THREE.DoubleSide
-  });
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
-  return { mesh, mat };
-}
 
 function buildOrganicInterior(prim){
   organicBlob = null;
   const g = new THREE.Group();
-  const W = 9, D = 9, H = 5;          // 3D room you walk inside
-  const walls = [];
-  // floor + ceiling (plain, bright) to ground the space
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D),
-    new THREE.MeshStandardMaterial({ color: 0x20201f, roughness: 0.9 }));
-  floor.rotation.x = -Math.PI/2; g.add(floor);
-  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, D),
-    new THREE.MeshStandardMaterial({ color: 0x16161a, roughness: 1.0 }));
-  ceil.rotation.x = Math.PI/2; ceil.position.y = H; g.add(ceil);
+  // enveloping shader dome (inverted sphere skybox) — follows the camera
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(24, 80, 56),
+    new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: RAYMARCH_VERT, fragmentShader: RAYMARCH_FRAG,
+      side: THREE.BackSide, depthWrite: false, fog: false
+    })
+  );
+  dome.frustumCulled = false;
+  g.add(dome);
 
-  // 4 shader walls — each a window into the metaball field along its facing
-  const defs = [
-    { w: W, yaw: 0.0,        pos: [0, H/2, -D/2], rotY: 0 },          // front (faces +Z)
-    { w: W, yaw: Math.PI,    pos: [0, H/2,  D/2], rotY: Math.PI },    // back  (faces -Z)
-    { w: D, yaw: -Math.PI/2, pos: [-W/2, H/2, 0], rotY: Math.PI/2 },  // left  (faces +X)
-    { w: D, yaw:  Math.PI/2, pos: [ W/2, H/2, 0], rotY: -Math.PI/2 }, // right (faces -X)
-  ];
-  defs.forEach(d => {
-    const { mesh, mat } = makeRaymarchWall(d.w, H, d.yaw);
-    mesh.position.set(d.pos[0], d.pos[1], d.pos[2]);
-    mesh.rotation.y = d.rotY;
-    g.add(mesh); walls.push(mat);
-  });
+  // a faint floor so movement reads + grounding
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(9, 64),
+    new THREE.MeshBasicMaterial({ color: 0x1a1a1a, transparent: true, opacity: 0.5 }));
+  floor.rotation.x = -Math.PI/2; floor.position.y = 0.001; g.add(floor);
 
-  // footage floats in the middle of the room
+  // footage floats inside the field
   const src = prim.videos[0] || null;
-  const screen = makeScreen(4.4, 2.6, src, prim);
-  screen.position.set(0, 1.8, -D/2 + 0.5);
+  const screen = makeScreen(4.6, 2.7, src, prim);
+  screen.position.set(0, 1.8, -4.0);
   g.add(screen); interiorScreens.push(screen);
 
-  organicBlob = { walls, raymarch: true };
-  interiorBounds = { minX:-W/2+0.6, maxX:W/2-0.6, minZ:-D/2+0.6, maxZ:D/2-0.6 };
-  interiorSpawn = { pos: new THREE.Vector3(0, 1.6, D/2 - 1.5), yaw: Math.PI };
+  organicBlob = { dome, mat: dome.material, raymarch: true };
+  interiorBounds = { circleR: 6.0 };
+  interiorSpawn = { pos: new THREE.Vector3(0, 1.6, 2.0), yaw: Math.PI };
   return g;
 }
 
