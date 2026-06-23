@@ -32,7 +32,7 @@ const PRIMS = [
     meta:"04 / the vertical axis · exhumation",
     body:"A well that descends below the line: the axis toward the earth and the afterlife. It works as an extractor — re-exhumations and secondary burials — a conduit between the surface of the living and the underground of the dead. Beads of light fall into the shaft.",
     tag:"∎ EXHUME", videos:["videos/relational-fan-04.mp4"] },
-  { id:"05", kind:"mesh",       title:"VIGIL.MESH",        interior:"chamber",
+  { id:"05", kind:"mesh",       title:"VIGIL.MESH",        interior:"fan",
     meta:"05 / the web of the bereaved",
     body:"A polygonal canopy of relations. Every vertex a mourner, every edge a tie to the dead. The mesh holds the network of grief together, refusing to name a single centre.",
     tag:"∎ VIGIL", videos:[] },
@@ -44,23 +44,23 @@ const PRIMS = [
     meta:"07 / the towers that call the dead",
     body:"A bundle of thin verticals. Bells, minarets, mourning towers — the signal that announces a death to those still breathing. The taller the spire, the further the grief travels.",
     tag:"∎ SIGNAL", videos:[] },
-  { id:"08", kind:"ziggurat",   title:"OFFERING.ZIGGURAT", interior:"chamber",
+  { id:"08", kind:"ziggurat",   title:"OFFERING.ZIGGURAT", interior:"crypt",
     meta:"08 / stepped tomb · the rite of ascent",
     body:"A terraced tomb of receding plateaus. Each step a rite, each rite narrower than the last, climbing toward a place the body cannot follow. Crowned by an obelisk that listens.",
     tag:"∎ OFFERING", videos:[] },
-  { id:"09", kind:"datastack",  title:"STRATA.ARCHIVE",    interior:"chamber",
+  { id:"09", kind:"datastack",  title:"STRATA.ARCHIVE",    interior:"crypt",
     meta:"09 / sediment · layers of the buried",
     body:"Vertical strata of memory, floor beneath floor. Generations pressed into sediment. The machine registers each death by its metadata — date, place, cause — and never once understands it.",
     tag:"∎ STRATA", videos:[] },
-  { id:"10", kind:"windfarm",   title:"SCATTER.FARM",      interior:"chamber",
+  { id:"10", kind:"windfarm",   title:"SCATTER.FARM",      interior:"fan",
     meta:"10 / the rite of dispersal",
     body:"Masts turning in the open. Sky burials, ashes scattered to wind and water, bodies given back to the elements. The lightest of the rites and the hardest to hold.",
     tag:"∎ SCATTER", videos:[] },
-  { id:"11", kind:"box",        title:"OSSUARY.DEPOT",     interior:"chamber",
+  { id:"11", kind:"box",        title:"OSSUARY.DEPOT",     interior:"rack",
     meta:"11 / the container of bones",
     body:"A box. An ossuary. It holds everything the landscape has decided not to display: bones, urns, relics kept active by maintenance rather than mourning. Open on appointment.",
     tag:"∎ OSSUARY", videos:[] },
-  { id:"12", kind:"fan",        title:"TERMINAL.FAN",      interior:"chamber",
+  { id:"12", kind:"fan",        title:"TERMINAL.FAN",      interior:"fan",
     meta:"12 / the last procession",
     body:"Closing radial. The ear of the land listens. The archive does not end; it loops back to the first tomb, ready to outlast everyone who built it — a testament for the machines and the modelled people still to come.",
     tag:"∎ TESTAMENT", videos:[] },
@@ -1388,6 +1388,7 @@ function disposeInterior(){
   interiorRoot = null;
   interiorScreens = [];
   fanRays = null;
+  interiorAmbiance = null;
 }
 
 /* build a room shell (box) and return helpers */
@@ -1492,6 +1493,29 @@ function buildFanInterior(prim){
 /* animate interior reactive effects (fan rays react to look direction + time) */
 const _fanTmp = new THREE.Vector3();
 function updateInteriorFx(dt){
+  // shared ambiance — descending beads + swaying tendrils
+  if (interiorAmbiance){
+    const t = performance.now() * 0.001;
+    const ext = interiorAmbiance.ext;
+    interiorAmbiance.beads.forEach((sp) => {
+      const u = sp.userData;
+      sp.position.y -= u.speed * dt;
+      if (sp.position.y < ext.bottom){
+        const [x,z] = ambiancePoint(ext);
+        sp.position.set(x, ext.top, z);
+      }
+      const tw = 0.6 + 0.4*Math.sin(t*2.4 + u.phase);
+      sp.material.opacity = 0.45 + tw*0.45;
+      const s = u.baseScale * (0.8 + tw*0.4);
+      sp.scale.set(s, s, 1);
+    });
+    interiorAmbiance.tendrils.forEach((pv) => {
+      const u = pv.userData;
+      pv.rotation.z = Math.sin(t*u.speed + u.seed) * u.amp;
+      pv.rotation.x = Math.cos(t*u.speed*0.8 + u.seed) * u.amp;
+    });
+  }
+
   if (fanRays && interiorRoot){
     const t = performance.now() * 0.001;
     // gaze factor: how centred the convergence point is in view → rays intensify
@@ -1620,6 +1644,72 @@ const INTERIOR_BUILDERS = {
   rack: buildRackInterior,
 };
 
+/* ---- shared ambiance: descending light beads + swaying organic tendrils ----
+   gives every tomb the "mix of everything" feel: the light-points of the main
+   screen + the organic motion of the pendant, in the bright interior. */
+let interiorAmbiance = null;
+function interiorExtent(){
+  const b = interiorBounds || {};
+  if (b.ringOuter != null) return { centric:true, r: b.ringOuter, top: 5.0, bottom: -14.0, ceil: 5.0 };
+  if (b.circleR != null)   return { centric:true, r: b.circleR,  top: 6.0, bottom: 0.3,  ceil: 6.0 };
+  const minX = b.minX ?? -5, maxX = b.maxX ?? 5, minZ = b.minZ ?? -5, maxZ = b.maxZ ?? 5;
+  return { centric:false, minX, maxX, minZ, maxZ, top: 4.4, bottom: 0.3, ceil: 4.6 };
+}
+function ambiancePoint(ext){
+  if (ext.centric){
+    const a = Math.random()*Math.PI*2, rr = Math.random()*ext.r*0.85;
+    return [Math.cos(a)*rr, Math.sin(a)*rr];
+  }
+  return [ THREE.MathUtils.lerp(ext.minX, ext.maxX, Math.random()),
+           THREE.MathUtils.lerp(ext.minZ, ext.maxZ, Math.random()) ];
+}
+function addInteriorAmbiance(root){
+  const ext = interiorExtent();
+  const beadTex = makeDotTexture();
+  // descending light beads
+  const beads = [];
+  const N = 22;
+  for (let i=0;i<N;i++){
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: beadTex, color: 0xffffff, transparent: true,
+      toneMapped: false, blending: THREE.AdditiveBlending, depthWrite: false
+    }));
+    const sc = 0.10 + Math.random()*0.07;
+    const [x,z] = ambiancePoint(ext);
+    sp.position.set(x, THREE.MathUtils.lerp(ext.bottom, ext.top, Math.random()), z);
+    sp.scale.set(sc, sc, 1);
+    sp.userData = { baseScale: sc, speed: 0.35 + Math.random()*0.6, phase: Math.random()*Math.PI*2 };
+    root.add(sp);
+    beads.push(sp);
+  }
+  // swaying organic tendrils hanging from the ceiling
+  const tendrils = [];
+  const tMat = new THREE.MeshStandardMaterial({ color: 0xd6d4cc, roughness: 0.85 });
+  const NT = ext.centric ? 5 : 4;
+  for (let i=0;i<NT;i++){
+    const pivot = new THREE.Group();
+    const [x,z] = ambiancePoint(ext);
+    pivot.position.set(x, ext.ceil, z);
+    const len = 1.4 + Math.random()*1.6;
+    const seed = i*1.7;
+    const pts = [];
+    const SEG = 8;
+    for (let s=0;s<=SEG;s++){
+      const t = s/SEG;
+      const w = Math.sin(t*Math.PI*2 + seed)*0.18*t;
+      pts.push(new THREE.Vector3(w, -t*len, Math.cos(t*Math.PI*1.6+seed)*0.18*t));
+    }
+    const tube = new THREE.Mesh(
+      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, 0.035, 5, false), tMat
+    );
+    pivot.add(tube);
+    pivot.userData = { seed, amp: 0.06 + Math.random()*0.05, speed: 0.4 + Math.random()*0.4 };
+    root.add(pivot);
+    tendrils.push(pivot);
+  }
+  interiorAmbiance = { beads, tendrils, ext };
+}
+
 /* ---- FPS state ---- */
 const fps = {
   yaw: Math.PI, pitch: 0,
@@ -1652,9 +1742,10 @@ function prepareInterior(idx){
   const builder = INTERIOR_BUILDERS[prim.interior] || buildChamberInterior;
   interiorScreens = [];
   interiorRoot = builder(prim);
+  addInteriorAmbiance(interiorRoot);
   interiorScene.add(interiorRoot);
-  // place camera at spawn
-  fps.yaw = interiorSpawn.yaw; fps.pitch = 0;
+  // place camera at spawn, turned 180° so it faces the screen (not the wall)
+  fps.yaw = interiorSpawn.yaw + Math.PI; fps.pitch = 0;
   camera.position.copy(interiorSpawn.pos);
   applyFpsLook();
   // HUD text
@@ -2044,6 +2135,12 @@ function animateNodes(dt){
     if ((k === "sphere" || k === "dome" || k === "mesh") && inner){
       inner.rotation.y = Math.sin(animT * 0.4 + phase) * PARAMS.idleSpin * 0.18
                        + animT * PARAMS.idleSpin * 0.05;
+    }
+    // subtle organic breathing for the still forms (preserve NODE_SCALE)
+    if (inner && (k==="datastack"||k==="ziggurat"||k==="dataspires"||k==="box"||k==="mesh"||k==="dome"||k==="chiparray"||k==="columns")){
+      const bx = NODE_SCALE * (1 + Math.sin(animT*0.8 + phase + 1.0) * 0.018);
+      const by = NODE_SCALE * (1 + Math.sin(animT*0.95 + phase) * 0.026);
+      inner.scale.set(bx, by, bx);
     }
     // windfarm blade rotation
     if (k === "windfarm" && ud && ud.blades){
