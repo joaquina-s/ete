@@ -1494,18 +1494,14 @@ function buildFanInterior(prim){
 /* animate interior reactive effects (fan rays react to look direction + time) */
 const _fanTmp = new THREE.Vector3();
 function updateInteriorFx(dt){
-  // breathing organic blob (shader time + scale pulse + root sway)
-  if (organicBlob){
-    const t = performance.now() * 0.001;
-    organicBlob.mat.uniforms.uTime.value = t;
-    const br = 1 + Math.sin(t * 0.9) * 0.06;       // whole-body breathe
-    organicBlob.blob.scale.set(br, br * 1.04, br);
-    organicBlob.blob.rotation.y = t * 0.06;
-    organicBlob.rootPivots.forEach((pv) => {
-      const u = pv.userData;
-      pv.rotation.z = Math.sin(t * u.speed + u.seed) * u.amp;
-      pv.rotation.x = Math.cos(t * u.speed * 0.8 + u.seed) * u.amp;
-    });
+  // raymarched metaball field — feed time / resolution / look parallax
+  if (organicBlob && organicBlob.raymarch){
+    const u = organicBlob.mat.uniforms;
+    u.uTime.value = performance.now() * 0.001;
+    renderer.getDrawingBufferSize(_dbSize);
+    u.uResolution.value.set(_dbSize.x, _dbSize.y);
+    camera.getWorldDirection(_fwd);              // subtle parallax as you look
+    u.uLook.value.set(_fwd.x * 0.35, _fwd.y * 0.35);
   }
 
   // shared ambiance — descending beads + swaying tendrils
@@ -1750,76 +1746,111 @@ void main(){
   gl_FragColor = vec4(col, 1.0);
 }`;
 
+/* ---- raymarched metaball field (Shadertoy MdcSRj port) ----
+   Rendered as a fullscreen triangle behind the interior; the tomb becomes a
+   living tunnel of merging organic spheres. */
+const RAYMARCH_VERT = `
+void main(){ gl_Position = vec4(position.xy, 1.0, 1.0); }`;
+const RAYMARCH_FRAG = `
+precision highp float;
+uniform float uTime;
+uniform vec2 uResolution;
+uniform vec2 uLook;
+const int MAX_STEPS = 100;
+const int NUM_SPHERES = 12;
+float hash(float n){ return fract(sin(n*43758.5453123)); }
+float sphereSDF(vec3 pos, float radius, vec3 smpl){ return length(pos - smpl) - radius; }
+float planeSDF(vec3 dir, float offset, vec3 smpl){ return dot(dir, smpl) + offset; }
+float dfDist(vec3 smpl){
+  float T1 = 10.0; float T2 = 2.0*T1;
+  float result = 10000.0;
+  smpl.y += sin(smpl.z*0.2 + uTime)*sin(uTime*1.33)
+          + sin(smpl.x*0.3 + uTime)*sin(uTime*3.22)
+          + sin(smpl.x*0.5 + smpl.z*0.22 + uTime)*sin(uTime*2.22 + smpl.z*0.1);
+  float o = floor((smpl.z + T1)/T2);
+  smpl.x += o*7.0;
+  smpl.xz = mod(smpl.xz + T1, T2) - T1;
+  for (int i=0;i<NUM_SPHERES;i++){
+    float t = float(i)/float(NUM_SPHERES);
+    float n = t + uTime*0.25 + o*0.5;
+    vec3 pos = vec3(sin(n*5.0)*5.0, cos(n*3.0)*9.0, cos(n*2.0)*3.0 + 5.0);
+    float radius = hash(t*t + 3.1)*2.0 + 1.4;
+    result = min(result, sphereSDF(pos, radius, smpl));
+  }
+  result = min(result, planeSDF(vec3(0,-1,0), 10.0, smpl));
+  result = min(result, planeSDF(vec3(0,1,0), 10.0, smpl));
+  return result;
+}
+vec3 dfNormal(vec3 smpl){
+  const float E = 0.04;
+  float d0 = dfDist(smpl);
+  float dX = dfDist(smpl+vec3(E,0,0));
+  float dY = dfDist(smpl+vec3(0,E,0));
+  float dZ = dfDist(smpl+vec3(0,0,E));
+  return normalize(vec3(dX-d0, dY-d0, dZ-d0));
+}
+float dfOcclusion(vec3 smpl, vec3 normal){ float N=1.0; return clamp(dfDist(smpl+normal*N)/N, 0.0, 1.0); }
+float trace(inout vec3 pos, vec3 dir, out vec3 normal){
+  int steps = 0;
+  for (int i=0;i<MAX_STEPS;i++){
+    steps++;
+    float d = dfDist(pos);
+    pos += d*dir;
+    if (d < 0.001) break;
+  }
+  normal = dfNormal(pos);
+  return float(steps)/float(MAX_STEPS);
+}
+void main(){
+  vec2 fragCoord = gl_FragCoord.xy;
+  vec2 res = uResolution;
+  vec3 opos = vec3(4.5, sin(uTime*0.4)*3.0 + 2.0, -7.0 + uTime*3.0);
+  vec3 pos = opos;
+  vec3 dir = normalize(vec3((fragCoord.x - res.x*0.5)/res.y + uLook.x,
+                            fragCoord.y/res.y - 0.5 + uLook.y, 1.0));
+  vec3 normal;
+  float steps = trace(pos, dir, normal);
+  float occ = dfOcclusion(pos, normal);
+  float fogAmt = 1.0 - exp(-distance(opos, pos)*0.01);
+  vec3 fogCol = vec3(0.2, 0.14, 0.18);
+  vec3 diffuse = vec3(0.4, 0.5, 0.6) * dot(normal, normalize(vec3(1.0, 0.3, -1.0)));
+  vec3 ambient = vec3(0.4, 0.2, 0.1);
+  vec3 color = (ambient + diffuse) * vec3(1.0 - steps) + pow(1.0 - occ, 1.5) * vec3(1.0, 0.9, 0.8) * 0.8;
+  color = mix(color, fogCol, fogAmt);
+  color = (1.0 - exp(-color * 1.5)) * 1.3;
+  gl_FragColor = vec4(color, 1.0);
+}`;
+
 function buildOrganicInterior(prim){
   organicBlob = null;
   const g = new THREE.Group();
-  const R = 10, H = 5.5;
-  // bright rounded cavern
-  const floor = new THREE.Mesh(new THREE.CircleGeometry(R, 72), FLOOR_MAT());
-  floor.rotation.x = -Math.PI/2; g.add(floor);
-  const ceil = new THREE.Mesh(new THREE.CircleGeometry(R, 72),
-    new THREE.MeshStandardMaterial({ color: 0xeeece8, roughness: 1.0 }));
-  ceil.rotation.x = Math.PI/2; ceil.position.y = H; g.add(ceil);
-  const wall = new THREE.Mesh(new THREE.CylinderGeometry(R, R, H, 72, 1, true),
-    new THREE.MeshStandardMaterial({ color: 0xe6e4de, roughness: 0.9, side: THREE.BackSide }));
-  wall.position.y = H/2; g.add(wall);
-  // earthen mound the blob grows from
-  const mound = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.7, 0.45, 40),
-    new THREE.MeshStandardMaterial({ color: 0xc9c6bd, roughness: 0.96 }));
-  mound.position.y = 0.22; g.add(mound);
-
-  // the breathing blob
-  const geo = new THREE.SphereGeometry(1.5, 160, 120);
+  // fullscreen raymarch field as the living environment
+  const tri = new THREE.BufferGeometry();
+  tri.setAttribute("position", new THREE.BufferAttribute(
+    new Float32Array([-1,-1,0,  3,-1,0,  -1,3,0]), 3));
   const mat = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color(0xe6d9d2) } },
-    vertexShader: BLOB_VERT, fragmentShader: BLOB_FRAG
+    uniforms: {
+      uTime: { value: 0 },
+      uResolution: { value: new THREE.Vector2(1, 1) },
+      uLook: { value: new THREE.Vector2(0, 0) },
+    },
+    vertexShader: RAYMARCH_VERT, fragmentShader: RAYMARCH_FRAG,
+    depthTest: false, depthWrite: false
   });
-  const blob = new THREE.Mesh(geo, mat);
-  blob.position.set(0, 2.4, 0);
-  g.add(blob);
-  const blobLight = new THREE.PointLight(0xfff2e6, 0.9, 14, 2.0);
-  blobLight.position.set(0, 2.4, 0); g.add(blobLight);
+  const fsq = new THREE.Mesh(tri, mat);
+  fsq.frustumCulled = false;
+  fsq.renderOrder = -10;
+  g.add(fsq);
 
-  // roots crawling from the blob down through the mound and out across the floor
-  const rootPivots = [];
-  const rootMat = new THREE.MeshStandardMaterial({ color: 0xcfccc4, roughness: 0.85 });
-  const NR = 9;
-  for (let i=0;i<NR;i++){
-    const pivot = new THREE.Group();
-    pivot.position.set(0, 1.1, 0);
-    const dir = (i / NR) * Math.PI * 2 + Math.random()*0.3;
-    const reach = 3.2 + Math.random()*2.4;
-    const seed = i*1.4;
-    const pts = [], SEG = 12;
-    for (let s=0;s<=SEG;s++){
-      const t = s/SEG;
-      // descend then crawl outward along the ground with a wiggle
-      const yy = 1.0 * (1 - t) - 1.0 + (1 - Math.pow(1-t, 2)) * 0.05;
-      const outR = Math.pow(t, 1.3) * reach;
-      const wob = Math.sin(t*Math.PI*3 + seed) * 0.35 * t;
-      pts.push(new THREE.Vector3(
-        Math.cos(dir)*outR + Math.cos(dir+1.57)*wob,
-        Math.max(0.05, 1.0 - t*1.0),
-        Math.sin(dir)*outR + Math.sin(dir+1.57)*wob
-      ));
-    }
-    const tube = new THREE.Mesh(
-      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 30, 0.06, 6, false), rootMat);
-    tube.castShadow = true;
-    pivot.add(tube);
-    pivot.userData = { seed, amp: 0.04 + (i%3)*0.02, speed: 0.4 + (i%4)*0.1 };
-    g.add(pivot); rootPivots.push(pivot);
-  }
-
-  // the tomb's footage on the wall
+  // the tomb's footage floats in front of the living field
   const src = prim.videos[0] || null;
-  const screen = makeScreen(5.2, 3.0, src, prim);
-  screen.position.set(0, 2.7, -R + 1.4);
+  const screen = makeScreen(5.4, 3.0, src, prim);
+  screen.position.set(0, 1.7, -4.4);
   g.add(screen); interiorScreens.push(screen);
 
-  organicBlob = { mat, blob, rootPivots };
-  interiorBounds = { circleR: R - 1.0 };
-  interiorSpawn = { pos: new THREE.Vector3(0, 1.6, R - 3.6), yaw: Math.PI };
+  organicBlob = { mat, raymarch: true };
+  interiorBounds = { circleR: 3.0 };
+  interiorSpawn = { pos: new THREE.Vector3(0, 1.6, 0.4), yaw: Math.PI };
   return g;
 }
 
@@ -1930,7 +1961,7 @@ function prepareInterior(idx){
   const builder = INTERIOR_BUILDERS[prim.interior] || buildChamberInterior;
   interiorScreens = [];
   interiorRoot = builder(prim);
-  addInteriorAmbiance(interiorRoot);
+  if (prim.interior !== "organic") addInteriorAmbiance(interiorRoot);  // shader field stands alone
   interiorScene.add(interiorRoot);
   // place camera at spawn, turned 180° so it faces the screen (not the wall)
   fps.yaw = interiorSpawn.yaw + Math.PI; fps.pitch = 0;
@@ -2402,6 +2433,7 @@ function animateNodes(dt){
 /* ---- interior FPS update (movement + collision) ---- */
 const _fwd = new THREE.Vector3();
 const _right = new THREE.Vector3();
+const _dbSize = new THREE.Vector2();
 function updateInterior(dt){
   // only move while the pointer is locked (i.e. the gate is closed)
   const active = document.pointerLockElement === canvas;
