@@ -1701,12 +1701,25 @@ float snoise(vec3 v){
 const BLOB_VERT = BLOB_NOISE_GLSL + `
 uniform float uTime;
 varying vec3 vN; varying vec3 vWP; varying float vD;
+float fbm(vec3 p){
+  float a = 0.5, f = 0.0;
+  for(int i=0;i<4;i++){ f += a*snoise(p); p = p*2.02 + 1.7; a *= 0.5; }
+  return f;
+}
 void main(){
   float t = uTime;
-  float breathe = sin(t*0.9)*0.5 + 0.5;           // slow inhale/exhale
-  float n = snoise(normalize(position)*1.6 + vec3(0.0, t*0.22, 0.0));
-  float n2 = snoise(normalize(position)*3.3 + vec3(t*0.15));
-  float disp = n*0.20 + n2*0.07 + breathe*0.14;   // bulge + breathing pulse
+  vec3 dir = normalize(position);
+  // domain-warped fbm → flowing, veiny living surface
+  vec3 q = dir*1.7 + vec3(0.0, t*0.16, 0.0);
+  vec3 warp = vec3(fbm(q+1.1), fbm(q+5.2), fbm(q+9.3));
+  float detail = fbm(q + 0.65*warp);
+  float breathe = sin(t*0.85)*0.5 + 0.5;            // slow inhale/exhale
+  // lumps crawling under the skin (the symbiont)
+  vec3 a = normalize(vec3(sin(t*0.50), cos(t*0.42)*0.6, cos(t*0.33)));
+  vec3 b = normalize(vec3(cos(t*0.37), sin(t*0.50)*0.7, sin(t*0.29)));
+  vec3 c = normalize(vec3(sin(t*0.60+2.0), cos(t*0.31), sin(t*0.45+1.0)));
+  float lumps = exp(-7.0*distance(dir,a)) + exp(-8.0*distance(dir,b)) + exp(-9.0*distance(dir,c));
+  float disp = detail*0.16 + breathe*0.10 + lumps*0.20;
   vD = disp;
   vec3 displaced = position + normal * disp;
   vec4 wp = modelMatrix * vec4(displaced, 1.0);
@@ -1715,17 +1728,25 @@ void main(){
   gl_Position = projectionMatrix * viewMatrix * wp;
 }`;
 const BLOB_FRAG = `
+uniform float uTime;
 uniform vec3 uColor;
 varying vec3 vN; varying vec3 vWP; varying float vD;
 void main(){
   vec3 N = normalize(vN);
+  vec3 V = normalize(cameraPosition - vWP);
   vec3 L = normalize(vec3(0.35, 0.95, 0.3));
   float diff = clamp(dot(N, L), 0.0, 1.0);
-  vec3 V = normalize(cameraPosition - vWP);
-  float fres = pow(1.0 - clamp(dot(V, N), 0.0, 1.0), 2.2);
-  vec3 col = uColor * (0.45 + 0.65*diff);
-  col += vec3(0.32, 0.36, 0.5) * fres * 0.6;       // soft rim glow
-  col += vec3(0.12) * smoothstep(0.05, 0.3, vD);   // brighten on bulges
+  float fres = pow(1.0 - clamp(dot(V, N), 0.0, 1.0), 2.5);
+  // subsurface flesh: dark in the crevices, pale on the bulges
+  vec3 deep  = vec3(0.42, 0.30, 0.34);
+  vec3 flesh = vec3(0.94, 0.88, 0.84);
+  vec3 col = mix(deep, flesh, clamp(0.32 + 0.6*diff + vD*1.3, 0.0, 1.0));
+  col *= mix(vec3(1.0), uColor, 0.35);              // gentle tint
+  // iridescent membrane on the rim
+  float hue = fres*3.0 + uTime*0.18;
+  vec3 irid = 0.5 + 0.5*cos(6.2831*(vec3(0.0, 0.33, 0.67) + hue));
+  col += irid * fres * 0.42;
+  col += vec3(0.10) * smoothstep(0.10, 0.40, vD);   // glow on protrusions
   gl_FragColor = vec4(col, 1.0);
 }`;
 
@@ -1748,9 +1769,9 @@ function buildOrganicInterior(prim){
   mound.position.y = 0.22; g.add(mound);
 
   // the breathing blob
-  const geo = new THREE.SphereGeometry(1.5, 128, 96);
+  const geo = new THREE.SphereGeometry(1.5, 160, 120);
   const mat = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color(0xdedbd4) } },
+    uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color(0xe6d9d2) } },
     vertexShader: BLOB_VERT, fragmentShader: BLOB_FRAG
   });
   const blob = new THREE.Mesh(geo, mat);
