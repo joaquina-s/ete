@@ -1494,14 +1494,10 @@ function buildFanInterior(prim){
 /* animate interior reactive effects (fan rays react to look direction + time) */
 const _fanTmp = new THREE.Vector3();
 function updateInteriorFx(dt){
-  // raymarched metaball field — feed time / resolution / look parallax
+  // raymarched metaball walls — shared, slowed time (70% slower)
   if (organicBlob && organicBlob.raymarch){
-    const u = organicBlob.mat.uniforms;
-    u.uTime.value = performance.now() * 0.001;
-    renderer.getDrawingBufferSize(_dbSize);
-    u.uResolution.value.set(_dbSize.x, _dbSize.y);
-    camera.getWorldDirection(_fwd);              // subtle parallax as you look
-    u.uLook.value.set(_fwd.x * 0.35, _fwd.y * 0.35);
+    const t = performance.now() * 0.001 * 0.30;   // 0.30x => 70% slower motion
+    organicBlob.walls.forEach(mat => { mat.uniforms.uTime.value = t; });
   }
 
   // shared ambiance — descending beads + swaying tendrils
@@ -1750,13 +1746,15 @@ void main(){
    Rendered as a fullscreen triangle behind the interior; the tomb becomes a
    living tunnel of merging organic spheres. */
 const RAYMARCH_VERT = `
-void main(){ gl_Position = vec4(position.xy, 1.0, 1.0); }`;
+varying vec2 vUv;
+void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 const RAYMARCH_FRAG = `
 precision highp float;
 uniform float uTime;
-uniform vec2 uResolution;
-uniform vec2 uLook;
-const int MAX_STEPS = 100;
+uniform float uAspect;
+uniform float uYaw;
+varying vec2 vUv;
+const int MAX_STEPS = 90;
 const int NUM_SPHERES = 12;
 float hash(float n){ return fract(sin(n*43758.5453123)); }
 float sphereSDF(vec3 pos, float radius, vec3 smpl){ return length(pos - smpl) - radius; }
@@ -1802,12 +1800,13 @@ float trace(inout vec3 pos, vec3 dir, out vec3 normal){
   return float(steps)/float(MAX_STEPS);
 }
 void main(){
-  vec2 fragCoord = gl_FragCoord.xy;
-  vec2 res = uResolution;
+  // each wall is a window into the shared field, looking out along its facing
+  vec2 uv = vUv - 0.5;
   vec3 opos = vec3(4.5, sin(uTime*0.4)*3.0 + 2.0, -7.0 + uTime*3.0);
   vec3 pos = opos;
-  vec3 dir = normalize(vec3((fragCoord.x - res.x*0.5)/res.y + uLook.x,
-                            fragCoord.y/res.y - 0.5 + uLook.y, 1.0));
+  vec3 dir = normalize(vec3(uv.x*uAspect, uv.y, 1.0));
+  float cy = cos(uYaw), sy = sin(uYaw);
+  dir.xz = mat2(cy, -sy, sy, cy) * dir.xz;     // rotate ray by wall facing
   vec3 normal;
   float steps = trace(pos, dir, normal);
   float occ = dfOcclusion(pos, normal);
@@ -1821,36 +1820,56 @@ void main(){
   gl_FragColor = vec4(color, 1.0);
 }`;
 
+function makeRaymarchWall(w, h, yaw){
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime:   { value: 0 },
+      uAspect: { value: w / h },
+      uYaw:    { value: yaw },
+    },
+    vertexShader: RAYMARCH_VERT, fragmentShader: RAYMARCH_FRAG,
+    side: THREE.DoubleSide
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+  return { mesh, mat };
+}
+
 function buildOrganicInterior(prim){
   organicBlob = null;
   const g = new THREE.Group();
-  // fullscreen raymarch field as the living environment
-  const tri = new THREE.BufferGeometry();
-  tri.setAttribute("position", new THREE.BufferAttribute(
-    new Float32Array([-1,-1,0,  3,-1,0,  -1,3,0]), 3));
-  const mat = new THREE.ShaderMaterial({
-    uniforms: {
-      uTime: { value: 0 },
-      uResolution: { value: new THREE.Vector2(1, 1) },
-      uLook: { value: new THREE.Vector2(0, 0) },
-    },
-    vertexShader: RAYMARCH_VERT, fragmentShader: RAYMARCH_FRAG,
-    depthTest: false, depthWrite: false
-  });
-  const fsq = new THREE.Mesh(tri, mat);
-  fsq.frustumCulled = false;
-  fsq.renderOrder = -10;
-  g.add(fsq);
+  const W = 9, D = 9, H = 5;          // 3D room you walk inside
+  const walls = [];
+  // floor + ceiling (plain, bright) to ground the space
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D),
+    new THREE.MeshStandardMaterial({ color: 0x20201f, roughness: 0.9 }));
+  floor.rotation.x = -Math.PI/2; g.add(floor);
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, D),
+    new THREE.MeshStandardMaterial({ color: 0x16161a, roughness: 1.0 }));
+  ceil.rotation.x = Math.PI/2; ceil.position.y = H; g.add(ceil);
 
-  // the tomb's footage floats in front of the living field
+  // 4 shader walls — each a window into the metaball field along its facing
+  const defs = [
+    { w: W, yaw: 0.0,        pos: [0, H/2, -D/2], rotY: 0 },          // front (faces +Z)
+    { w: W, yaw: Math.PI,    pos: [0, H/2,  D/2], rotY: Math.PI },    // back  (faces -Z)
+    { w: D, yaw: -Math.PI/2, pos: [-W/2, H/2, 0], rotY: Math.PI/2 },  // left  (faces +X)
+    { w: D, yaw:  Math.PI/2, pos: [ W/2, H/2, 0], rotY: -Math.PI/2 }, // right (faces -X)
+  ];
+  defs.forEach(d => {
+    const { mesh, mat } = makeRaymarchWall(d.w, H, d.yaw);
+    mesh.position.set(d.pos[0], d.pos[1], d.pos[2]);
+    mesh.rotation.y = d.rotY;
+    g.add(mesh); walls.push(mat);
+  });
+
+  // footage floats in the middle of the room
   const src = prim.videos[0] || null;
-  const screen = makeScreen(5.4, 3.0, src, prim);
-  screen.position.set(0, 1.7, -4.4);
+  const screen = makeScreen(4.4, 2.6, src, prim);
+  screen.position.set(0, 1.8, -D/2 + 0.5);
   g.add(screen); interiorScreens.push(screen);
 
-  organicBlob = { mat, raymarch: true };
-  interiorBounds = { circleR: 3.0 };
-  interiorSpawn = { pos: new THREE.Vector3(0, 1.6, 0.4), yaw: Math.PI };
+  organicBlob = { walls, raymarch: true };
+  interiorBounds = { minX:-W/2+0.6, maxX:W/2-0.6, minZ:-D/2+0.6, maxZ:D/2-0.6 };
+  interiorSpawn = { pos: new THREE.Vector3(0, 1.6, D/2 - 1.5), yaw: Math.PI };
   return g;
 }
 
