@@ -16,31 +16,30 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
    videos:   footage played inside the chamber (web-compressed mp4s).
 */
 const PRIMS = [
-  { id:"01", kind:"dome",       title:"MEMORY.DOME",       interior:"chamber",
-    meta:"01 / containment · the vault of the remembered",
-    body:"A hemispheric vault that stores what fears loss. To archive is a human gesture, made out of the dread of death. Smooth outside, hollow within, waiting for a guardian who never comes.",
-    tag:"∎ MEMORY", videos:[] },
+  { id:"01", kind:"pendant",    title:"PENDANT.PROTOCOL",  interior:"crypt",
+    meta:"01 / ground-tombs · return to the earth",
+    body:"A stalactite of stacked rings that hangs from the rail and breathes. Burial: to make the dead reconnect with the ground, so plants grow from him and worms feed — so other life goes on. Roots crawl downward, a symbiont spreading under the floor where we mourn. Ancient, ritual, subterranean.",
+    tag:"∎ BURIAL", videos:["videos/relational-fan-01.mp4"] },
   { id:"02", kind:"fan",        title:"RELATIONAL.FAN",    interior:"fan",
     meta:"02 / processions · the social body of mourning",
-    body:"The fan opens and radiates from a single point: the community that gathers around the deceased. Funeral processions and pageants, collective vigils, the event that spreads mourning through a whole town. The geometry of the acute gathering, tied to one death.",
-    tag:"∎ PROCESSION",
-    videos:["videos/relational-fan-01.mp4","videos/relational-fan-02.mp4","videos/relational-fan-03.mp4","videos/relational-fan-04.mp4"] },
-  { id:"03", kind:"datastack",  title:"STRATA.ARCHIVE",    interior:"chamber",
-    meta:"03 / sediment · layers of the buried",
-    body:"Vertical strata of memory, floor beneath floor. Generations pressed into sediment. The machine registers each death by its metadata — date, place, cause — and never once understands it.",
-    tag:"∎ STRATA", videos:[] },
-  { id:"04", kind:"rack",       title:"GOVERNANCE.RACK",   interior:"rack",
-    meta:"04 / institution · death regulated",
-    body:"The rack of identical slots is death regulated by the state. State funerals, military honours, the furling of the flag, salutes, rigid choreography. War cemeteries with endless rows of identical stones — the grid of crosses. The bureaucracy of death, organised and catalogued.",
-    tag:"∎ STATE", videos:[] },
+    body:"Sun-rayed analytic of relations: every line a tie between distributed mourners, converging on one death. The fan opens and radiates from a single point — the community that gathers around the deceased. Funeral processions, collective vigils, grief spread through a whole town.",
+    tag:"∎ PROCESSION", videos:["videos/relational-fan-02.mp4"] },
+  { id:"03", kind:"rack",       title:"GOVERNANCE.RACK",   interior:"rack",
+    meta:"03 / institution · death regulated",
+    body:"The rack of identical slots is death regulated by the state. State funerals, military honours, the furling of the flag, salutes, rigid choreography. War cemeteries with endless rows of identical stones — the grid of crosses. The slots empty from the middle and re-stack on top, endlessly.",
+    tag:"∎ STATE", videos:["videos/relational-fan-03.mp4"] },
+  { id:"04", kind:"well",       title:"EXTRACTION.WELL",   interior:"well",
+    meta:"04 / the vertical axis · exhumation",
+    body:"A well that descends below the line: the axis toward the earth and the afterlife. It works as an extractor — re-exhumations and secondary burials — a conduit between the surface of the living and the underground of the dead. Beads of light fall into the shaft.",
+    tag:"∎ EXHUME", videos:["videos/relational-fan-04.mp4"] },
   { id:"05", kind:"mesh",       title:"VIGIL.MESH",        interior:"chamber",
     meta:"05 / the web of the bereaved",
     body:"A polygonal canopy of relations. Every vertex a mourner, every edge a tie to the dead. The mesh holds the network of grief together, refusing to name a single centre.",
     tag:"∎ VIGIL", videos:[] },
-  { id:"06", kind:"well",       title:"EXTRACTION.WELL",   interior:"well",
-    meta:"06 / the vertical axis · exhumation",
-    body:"A well that descends below the line: the axis toward the earth and the afterlife. It works as an extractor — re-exhumations and secondary burials, the conduit between the surface of the living and the underground of the dead.",
-    tag:"∎ EXHUME", videos:[] },
+  { id:"06", kind:"dome",       title:"MEMORY.DOME",       interior:"chamber",
+    meta:"06 / containment · the vault of the remembered",
+    body:"A hemispheric vault that stores what fears loss. To archive is a human gesture, made out of the dread of death. Smooth outside, hollow within, waiting for a guardian who never comes.",
+    tag:"∎ MEMORY", videos:[] },
   { id:"07", kind:"dataspires", title:"SIGNAL.SPIRES",     interior:"chamber",
     meta:"07 / the towers that call the dead",
     body:"A bundle of thin verticals. Bells, minarets, mourning towers — the signal that announces a death to those still breathing. The taller the spire, the further the grief travels.",
@@ -49,10 +48,10 @@ const PRIMS = [
     meta:"08 / stepped tomb · the rite of ascent",
     body:"A terraced tomb of receding plateaus. Each step a rite, each rite narrower than the last, climbing toward a place the body cannot follow. Crowned by an obelisk that listens.",
     tag:"∎ OFFERING", videos:[] },
-  { id:"09", kind:"pendant",    title:"PENDANT.PROTOCOL",  interior:"crypt",
-    meta:"09 / ground-tombs · return to the earth",
-    body:"Burial, ground-tombs: to make the dead reconnect with the ground, with nature, so plants can grow from him and worms can feed — so other life can go on. A symbiont spreading pattern crawling underground while we mourn one floor above. Ancient, ritual, subterranean.",
-    tag:"∎ BURIAL", videos:[] },
+  { id:"09", kind:"datastack",  title:"STRATA.ARCHIVE",    interior:"chamber",
+    meta:"09 / sediment · layers of the buried",
+    body:"Vertical strata of memory, floor beneath floor. Generations pressed into sediment. The machine registers each death by its metadata — date, place, cause — and never once understands it.",
+    tag:"∎ STRATA", videos:[] },
   { id:"10", kind:"windfarm",   title:"SCATTER.FARM",      interior:"chamber",
     meta:"10 / the rite of dispersal",
     body:"Masts turning in the open. Sky burials, ashes scattered to wind and water, bodies given back to the elements. The lightest of the rites and the hardest to hold.",
@@ -113,6 +112,8 @@ const lockTitle = document.getElementById("lock-title");
 const lockBody = document.getElementById("lock-body");
 const lockResume = document.getElementById("lock-resume");
 const lockExit = document.getElementById("lock-exit");
+const fanRaysCanvas = document.getElementById("fan-rays");
+const fanCtx = fanRaysCanvas.getContext("2d");
 const cursorEl = document.getElementById("cursor");
 const ripplesEl = document.getElementById("ripples");
 const paramsEl = document.getElementById("params");
@@ -139,6 +140,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 
 let composer, bloomPass;
+let interiorComposer, interiorBloom, interiorRenderPass;
 function setupPost(){
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
@@ -148,12 +150,23 @@ function setupPost(){
   bloomPass.radius = PARAMS.bloomRadius;
   composer.addPass(bloomPass);
   composer.addPass(new OutputPass());
+
+  // interior: its own composer so the white chambers get a soft gloom
+  interiorComposer = new EffectComposer(renderer);
+  interiorRenderPass = new RenderPass(interiorScene, camera);
+  interiorComposer.addPass(interiorRenderPass);
+  interiorBloom = new UnrealBloomPass(new THREE.Vector2(1,1), 0.55, 0.85, 0.72);
+  interiorComposer.addPass(interiorBloom);
+  interiorComposer.addPass(new OutputPass());
 }
 
 function resize(){
-  const w = canvas.clientWidth, h = canvas.clientHeight;
+  const w = canvas.clientWidth || (canvas.parentElement && canvas.parentElement.clientWidth) || window.innerWidth;
+  const h = canvas.clientHeight || (canvas.parentElement && canvas.parentElement.clientHeight) || window.innerHeight;
   renderer.setSize(w, h, false);
   if (composer) composer.setSize(w, h);
+  if (interiorComposer) interiorComposer.setSize(w, h);
+  if (fanRaysCanvas){ fanRaysCanvas.width = w; fanRaysCanvas.height = h; fanAnchors = null; }
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
@@ -589,9 +602,12 @@ function buildDatastack(p){
   return g;
 }
 
-/* pendant / stalactite — hangs down from rail */
+/* pendant / stalactite — hangs from the rail, breathes, grows roots downward */
 function buildPendant(p){
   const g = new THREE.Group();
+  // body group (breathes / sways as one)
+  const body = new THREE.Group();
+  g.add(body);
   const segsBase = [
     { h: 0.4, r: 0.55, color: 0xdedcd6 },
     { h: 0.35, r: 0.42, color: 0xd2d2cd },
@@ -600,20 +616,12 @@ function buildPendant(p){
   ];
   const SUBDIV = 3;
   const GAP = 0.012;
-  // For each segment, subdivide into 3 sub-cylinders with linear radius taper
   const segs = segsBase.flatMap((s, idx) => {
     const nextR = segsBase[idx+1] ? segsBase[idx+1].r : s.r * 0.78;
     const subH = (s.h - (SUBDIV-1)*GAP) / SUBDIV;
     return Array.from({length: SUBDIV}, (_, k) => {
-      const t0 = k / SUBDIV;
-      const t1 = (k+1) / SUBDIV;
-      return {
-        h: subH,
-        rTop: s.r * (1-t0) + nextR * t0,
-        rBot: s.r * (1-t1) + nextR * t1,
-        color: s.color,
-        firstOfBase: k === 0
-      };
+      const t0 = k / SUBDIV, t1 = (k+1) / SUBDIV;
+      return { h: subH, rTop: s.r*(1-t0)+nextR*t0, rBot: s.r*(1-t1)+nextR*t1, color: s.color };
     });
   });
   let y = -0.05;
@@ -625,19 +633,57 @@ function buildPendant(p){
     }));
     mesh.position.y = y - s.h/2;
     mesh.castShadow = true; mesh.receiveShadow = true;
-    g.add(mesh);
+    body.add(mesh);
     const edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(geo, 25),
       new THREE.LineBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.55 })
     );
     edges.position.copy(mesh.position);
-    g.add(edges);
+    body.add(edges);
     y -= s.h;
   });
-  // tip dot
+  const tipY = y - 0.05;
   const tip = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), matInk);
-  tip.position.y = y - 0.05;
-  g.add(tip);
+  tip.position.y = tipY;
+  body.add(tip);
+
+  // --- organic roots crawling downward from the tip ---
+  const rootPivots = [];
+  const NROOTS = 6;
+  const rootMat = new THREE.MeshStandardMaterial({ color: 0xbdbbb3, roughness: 0.85, metalness: 0.0 });
+  for (let i=0;i<NROOTS;i++){
+    const pivot = new THREE.Group();
+    pivot.position.y = tipY;
+    const seed = i * 1.37;
+    const len = 2.6 + (i % 3) * 0.7;     // reach well below
+    const spread = 0.5 + (i % 2) * 0.35;
+    const dir = (i / NROOTS) * Math.PI * 2;
+    const pts = [];
+    const SEGS = 10;
+    for (let s=0;s<=SEGS;s++){
+      const t = s / SEGS;
+      const wob = Math.sin(t * Math.PI * 2.2 + seed) * spread * t;
+      pts.push(new THREE.Vector3(
+        Math.cos(dir) * (spread * t * 0.6 + wob),
+        -t * len,
+        Math.sin(dir) * (spread * t * 0.6 + wob)
+      ));
+    }
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const tube = new THREE.Mesh(
+      new THREE.TubeGeometry(curve, 28, 0.05, 6, false),
+      rootMat
+    );
+    tube.castShadow = true;
+    // taper: scale tip thinner via vertex? keep simple — small radius already
+    pivot.add(tube);
+    // a few rootlets (thin lines) for fineness
+    pivot.userData = { seed, swayAmp: 0.05 + (i%3)*0.03, swaySpeed: 0.5 + (i%4)*0.12, baseLen: len };
+    rootPivots.push(pivot);
+    g.add(pivot);
+  }
+
+  g.userData = { kind:"pendant", body, rootPivots, tipY };
   return g;
 }
 
@@ -679,6 +725,33 @@ function buildWell(p){
   const dot = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), matInk);
   dot.position.y = -r + 0.05;
   g.add(dot);
+
+  // --- beads of light descending into the shaft ---
+  const orbs = [];
+  const orbTex = makeDotTexture();
+  const NORB = 14;
+  for (let i=0;i<NORB;i++){
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: orbTex, transparent: true, color: 0xffffff,
+      toneMapped: false, blending: THREE.AdditiveBlending, depthWrite: false
+    }));
+    const sc = 0.12 + Math.random()*0.06;
+    sp.scale.set(sc, sc, 1);
+    // start spread above the rim, fall into the pit
+    const ang = Math.random()*Math.PI*2;
+    const rad = Math.random() * r * 0.7;
+    sp.position.set(Math.cos(ang)*rad, 1.2 + Math.random()*2.0, Math.sin(ang)*rad);
+    sp.userData = {
+      baseScale: sc,
+      speed: 0.5 + Math.random()*0.7,
+      topY: 1.2 + Math.random()*1.2,
+      bottomY: -r - 1.4,
+      ang, rad
+    };
+    g.add(sp);
+    orbs.push(sp);
+  }
+  g.userData = { kind:"well", orbs, wellR: r };
   return g;
 }
 
@@ -936,31 +1009,34 @@ function buildRack(p){
       g.add(post);
     }
   }
-  // trays
+  // trays — each grouped so it can ride a vertical conveyor (restack loop)
+  const slotStep = trayH + gap;
+  const yBottom = 0.25 + trayH/2 + 0.05;
+  const range = trays * slotStep;
+  const trayUnits = [];
+  const trayGeo = new THREE.BoxGeometry(w-0.12, trayH, d-0.12);
+  const ledGeo = new THREE.BoxGeometry(0.04, 0.03, 0.03);
   for (let i=0;i<trays;i++){
-    const y = 0.25 + i*(trayH+gap) + trayH/2 + 0.05;
-    const trayGeo = new THREE.BoxGeometry(w-0.12, trayH, d-0.12);
+    const unit = new THREE.Group();
     const tray = new THREE.Mesh(trayGeo, new THREE.MeshPhysicalMaterial({
       color: 0xe6e6e3, roughness: 0.3, clearcoat: 0.5
     }));
-    tray.position.y = y;
     tray.castShadow = true; tray.receiveShadow = true;
-    g.add(tray);
+    unit.add(tray);
     const edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(trayGeo, 25),
       new THREE.LineBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.5 })
     );
-    edges.position.copy(tray.position);
-    g.add(edges);
-    // status LEDs on right side
+    unit.add(edges);
     for (let l=0;l<3;l++){
-      const led = new THREE.Mesh(
-        new THREE.BoxGeometry(0.04, 0.03, 0.03),
-        matInk
-      );
-      led.position.set(w/2 - 0.12 - l*0.1, y, d/2 - 0.08);
-      g.add(led);
+      const led = new THREE.Mesh(ledGeo, matInk);
+      led.position.set(w/2 - 0.12 - l*0.1, 0, d/2 - 0.08);
+      unit.add(led);
     }
+    unit.position.y = yBottom + i * slotStep;
+    unit.userData = { phase0: i * slotStep };
+    g.add(unit);
+    trayUnits.push(unit);
   }
   // top cap
   const cap = new THREE.Mesh(
@@ -970,6 +1046,8 @@ function buildRack(p){
   cap.position.y = 0.25 + totalH + 0.03;
   cap.castShadow = true;
   g.add(cap);
+
+  g.userData = { kind:"rack", trayUnits, slotStep, yBottom, range, rackW: w, rackD: d };
   return g;
 }
 
@@ -1259,12 +1337,12 @@ function makeScreen(w, h, src, prim){
     new THREE.MeshBasicMaterial({ map: tex, toneMapped: true })
   );
   grp.add(screen);
-  // emissive bezel
+  // dark bezel frames the bright footage against the white room
   const frame = new THREE.Mesh(
-    new THREE.PlaneGeometry(w + 0.12, h + 0.12),
-    new THREE.MeshBasicMaterial({ color: 0x05060a })
+    new THREE.PlaneGeometry(w + 0.16, h + 0.16),
+    new THREE.MeshBasicMaterial({ color: 0x111114 })
   );
-  frame.position.z = -0.01;
+  frame.position.z = -0.02;
   grp.add(frame);
   // soft light cast by the screen
   const light = new THREE.PointLight(0xbfcaff, 0.0, 14, 2.0);
@@ -1274,22 +1352,28 @@ function makeScreen(w, h, src, prim){
   return grp;
 }
 
-/* interior scene (one active interior at a time) */
+/* interior scene (one active interior at a time) — bright, white, gloomy */
+const INT_BG = 0xeceae6;
 const interiorScene = new THREE.Scene();
-interiorScene.background = new THREE.Color(0x070709);
-interiorScene.fog = new THREE.FogExp2(0x070709, 0.018);
-interiorScene.add(new THREE.AmbientLight(0x404048, 0.6));
-const interiorKey = new THREE.PointLight(0x8890a8, 0.5, 40, 1.6);
+interiorScene.background = new THREE.Color(INT_BG);
+interiorScene.fog = new THREE.FogExp2(INT_BG, 0.020);
+interiorScene.add(new THREE.AmbientLight(0xffffff, 0.95));
+interiorScene.add(new THREE.HemisphereLight(0xffffff, 0xc8c6c0, 0.7));
+const interiorKey = new THREE.PointLight(0xffffff, 0.9, 50, 1.4);
 interiorKey.position.set(0, 6, 0);
 interiorScene.add(interiorKey);
+const interiorFill = new THREE.DirectionalLight(0xffffff, 0.5);
+interiorFill.position.set(6, 8, 6);
+interiorScene.add(interiorFill);
 
 let interiorRoot = null;
 let interiorBounds = null;
 let interiorScreens = [];   // screen groups w/ video entries
 let interiorSpawn = { pos: new THREE.Vector3(0, 1.6, 4), yaw: Math.PI };
 
-const FLOOR_MAT = () => new THREE.MeshStandardMaterial({ color: 0x14141a, roughness: 0.95, metalness: 0.0 });
-const WALL_MAT  = () => new THREE.MeshStandardMaterial({ color: 0x1c1c22, roughness: 0.9, metalness: 0.02, side: THREE.BackSide });
+// bright stone / plaster palette so the chambers read near-white
+const FLOOR_MAT = () => new THREE.MeshStandardMaterial({ color: 0xd8d6d0, roughness: 0.92, metalness: 0.0 });
+const WALL_MAT  = () => new THREE.MeshStandardMaterial({ color: 0xe6e4de, roughness: 0.88, metalness: 0.0, side: THREE.BackSide });
 
 function disposeInterior(){
   if (!interiorRoot) return;
@@ -1303,6 +1387,7 @@ function disposeInterior(){
   interiorScene.remove(interiorRoot);
   interiorRoot = null;
   interiorScreens = [];
+  fanRays = null;
 }
 
 /* build a room shell (box) and return helpers */
@@ -1313,7 +1398,7 @@ function roomShell(w, h, d){
   floor.receiveShadow = true;
   g.add(floor);
   const ceil = new THREE.Mesh(new THREE.PlaneGeometry(w, d),
-    new THREE.MeshStandardMaterial({ color: 0x0c0c10, roughness: 1.0 }));
+    new THREE.MeshStandardMaterial({ color: 0xeeece8, roughness: 1.0 }));
   ceil.rotation.x = Math.PI/2; ceil.position.y = h;
   g.add(ceil);
   const walls = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), WALL_MAT());
@@ -1334,7 +1419,7 @@ function buildChamberInterior(prim){
   g.add(screen); interiorScreens.push(screen);
   // a low plinth / catafalque in the centre
   const plinth = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.5, 1.2),
-    new THREE.MeshStandardMaterial({ color: 0x202028, roughness: 0.85 }));
+    new THREE.MeshStandardMaterial({ color: 0xceccc6, roughness: 0.85 }));
   plinth.position.set(0, 0.25, 0);
   g.add(plinth);
   interiorBounds = { minX:-W/2+0.6, maxX:W/2-0.6, minZ:-D/2+0.6, maxZ:D/2-0.6 };
@@ -1342,40 +1427,86 @@ function buildChamberInterior(prim){
   return g;
 }
 
+let fanRays = null;   // reactive converging lines, animated in updateInteriorFx
 function buildFanInterior(prim){
+  fanRays = null;
   const g = new THREE.Group();
-  const R = 13, H = 6;
-  // circular floor
+  const R = 13, H = 6.5;
+  // circular floor / ceiling / wall (bright)
   const floor = new THREE.Mesh(new THREE.CircleGeometry(R, 64), FLOOR_MAT());
   floor.rotation.x = -Math.PI/2; g.add(floor);
   const ceil = new THREE.Mesh(new THREE.CircleGeometry(R, 64),
-    new THREE.MeshStandardMaterial({ color: 0x0c0c10, roughness: 1.0 }));
+    new THREE.MeshStandardMaterial({ color: 0xeeece8, roughness: 1.0 }));
   ceil.rotation.x = Math.PI/2; ceil.position.y = H; g.add(ceil);
   const wall = new THREE.Mesh(new THREE.CylinderGeometry(R, R, H, 64, 1, true),
-    new THREE.MeshStandardMaterial({ color: 0x1a1a20, roughness: 0.92, side: THREE.BackSide }));
+    new THREE.MeshStandardMaterial({ color: 0xe6e4de, roughness: 0.9, side: THREE.BackSide }));
   wall.position.y = H/2; g.add(wall);
-  // fan arc of screens — one per video, radiating from centre
-  const vids = prim.videos.length ? prim.videos : [null];
-  const n = vids.length;
-  const arc = Math.PI * 1.15;            // spread of the fan
-  const start = -arc/2;
-  const rad = R - 1.6;
-  for (let i=0;i<n;i++){
-    const a = start + (n===1 ? arc/2 : (i/(n-1))*arc);
-    const sx = Math.sin(a) * rad;
-    const sz = -Math.cos(a) * rad;
-    const screen = makeScreen(4.6, 4.6, vids[i], prim); // square footage
-    screen.position.set(sx, 2.7, sz);
-    screen.rotation.y = a;               // face the centre
-    g.add(screen); interiorScreens.push(screen);
+
+  // single central video screen — the focal point where ties converge
+  const src = prim.videos[0] || null;
+  const screen = makeScreen(6.0, 6.0, src, prim);
+  const screenCenter = new THREE.Vector3(0, 3.0, -R + 2.2);
+  screen.position.copy(screenCenter);
+  g.add(screen); interiorScreens.push(screen);
+
+  // converging rays: many lines from points around the room → the screen centre,
+  // continuing THROUGH the centre so they cross the middle of the footage
+  const rayGroup = new THREE.Group();
+  const NR = 26;
+  const segments = [];
+  const mat = new THREE.LineBasicMaterial({
+    color: 0x1a1a1f, transparent: true, opacity: 0.5, toneMapped: false
+  });
+  for (let i=0;i<NR;i++){
+    const a = (i / NR) * Math.PI * 2;
+    const rr = R - 0.5;
+    const hY = 0.4 + Math.random() * (H - 1.0);
+    const from = new THREE.Vector3(Math.cos(a)*rr, hY, Math.sin(a)*rr);
+    // overshoot slightly past the centre so lines visibly cross it
+    const through = screenCenter.clone().add(
+      screenCenter.clone().sub(from).normalize().multiplyScalar(1.3)
+    );
+    const geo = new THREE.BufferGeometry().setFromPoints([from, through]);
+    const line = new THREE.Line(geo, mat.clone());
+    line.userData = { from, through, phase: Math.random()*Math.PI*2 };
+    rayGroup.add(line);
+    segments.push(line);
   }
-  // central low altar
-  const altar = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.3, 0.5, 24),
-    new THREE.MeshStandardMaterial({ color: 0x202028, roughness: 0.85 }));
-  altar.position.y = 0.25; g.add(altar);
+  g.add(rayGroup);
+  // a bright bead pulsing at the convergence point
+  const bead = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: makeDotTexture(), color: 0xffffff, transparent: true,
+    toneMapped: false, blending: THREE.AdditiveBlending, depthWrite: false
+  }));
+  bead.scale.set(1.4, 1.4, 1);
+  bead.position.copy(screenCenter);
+  g.add(bead);
+
+  fanRays = { segments, bead, center: screenCenter };
+
   interiorBounds = { circleR: R - 1.0 };
-  interiorSpawn = { pos: new THREE.Vector3(0, 1.6, rad - 5.5), yaw: Math.PI };
+  interiorSpawn = { pos: new THREE.Vector3(0, 1.6, R - 3.0), yaw: Math.PI };
   return g;
+}
+
+/* animate interior reactive effects (fan rays react to look direction + time) */
+const _fanTmp = new THREE.Vector3();
+function updateInteriorFx(dt){
+  if (fanRays && interiorRoot){
+    const t = performance.now() * 0.001;
+    // gaze factor: how centred the convergence point is in view → rays intensify
+    camera.getWorldDirection(_fanTmp);
+    const toC = fanRays.center.clone().sub(camera.position).normalize();
+    const gaze = THREE.MathUtils.clamp(_fanTmp.dot(toC), 0, 1);
+    fanRays.segments.forEach((line) => {
+      const u = line.userData;
+      const flick = 0.5 + 0.5 * Math.sin(t * 1.8 + u.phase);
+      line.material.opacity = 0.18 + flick * 0.32 + gaze * 0.4;
+    });
+    const pulse = 0.8 + 0.5 * Math.sin(t * 2.2);
+    fanRays.bead.scale.setScalar((1.0 + gaze * 0.8) * pulse);
+    fanRays.bead.material.opacity = 0.5 + gaze * 0.5;
+  }
 }
 
 function buildWellInterior(prim){
@@ -1384,7 +1515,9 @@ function buildWellInterior(prim){
   // descending shaft: stacked rings going DOWN
   for (let i=0;i<RINGS;i++){
     const y = -i * RING_H;
-    const shade = 0x1c1c22 - i * 0x020203;
+    // bright at the rim, darkening as the shaft descends into the earth
+    const f = Math.max(0, 1 - i * 0.13);
+    const shade = new THREE.Color(0xe2e0da).multiplyScalar(0.35 + 0.65 * f);
     const ring = new THREE.Mesh(
       new THREE.CylinderGeometry(R, R, RING_H, 48, 1, true),
       new THREE.MeshStandardMaterial({ color: shade, roughness: 0.95, side: THREE.BackSide })
@@ -1394,7 +1527,7 @@ function buildWellInterior(prim){
     // ledge ring
     const ledge = new THREE.Mesh(
       new THREE.TorusGeometry(R-0.05, 0.06, 8, 48),
-      new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 1 })
+      new THREE.MeshStandardMaterial({ color: 0x6a6862, roughness: 1 })
     );
     ledge.rotation.x = Math.PI/2; ledge.position.y = y; g.add(ledge);
   }
@@ -1403,7 +1536,7 @@ function buildWellInterior(prim){
   rim.rotation.x = -Math.PI/2; rim.position.y = 0.001; g.add(rim);
   // outer wall
   const outer = new THREE.Mesh(new THREE.CylinderGeometry(R+5, R+5, 8, 48, 1, true),
-    new THREE.MeshStandardMaterial({ color: 0x16161c, roughness: 0.95, side: THREE.BackSide }));
+    new THREE.MeshStandardMaterial({ color: 0xe2e0da, roughness: 0.92, side: THREE.BackSide }));
   outer.position.y = 2; g.add(outer);
   // video at the bottom of the well, facing up
   const src = prim.videos[0] || null;
@@ -1412,7 +1545,7 @@ function buildWellInterior(prim){
   bottom.position.set(0, -RINGS*RING_H + 0.2, 0);
   g.add(bottom); interiorScreens.push(bottom);
   // faint glow from the depths
-  const depth = new THREE.PointLight(0x6a78a0, 1.1, 30, 1.5);
+  const depth = new THREE.PointLight(0xbcc4d6, 1.6, 34, 1.4);
   depth.position.set(0, -RINGS*RING_H + 2, 0);
   g.add(depth);
   interiorBounds = { ringInner: R + 0.4, ringOuter: R + 4.4 };
@@ -1425,7 +1558,7 @@ function buildCryptInterior(prim){
   const W = 16, H = 3.2, D = 10;          // low, wide, underground
   g.add(roomShell(W, H, D));
   // rows of low ground-tombs
-  const tombMat = new THREE.MeshStandardMaterial({ color: 0x23231c, roughness: 0.95 });
+  const tombMat = new THREE.MeshStandardMaterial({ color: 0xcac8c0, roughness: 0.95 });
   for (let r=0;r<2;r++){
     for (let c=0;c<5;c++){
       const slab = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.3, 0.9), tombMat);
@@ -1433,7 +1566,7 @@ function buildCryptInterior(prim){
       g.add(slab);
       // soil mound hint
       const mound = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.05, 1.0),
-        new THREE.MeshStandardMaterial({ color: 0x14140e, roughness: 1 }));
+        new THREE.MeshStandardMaterial({ color: 0xb0aea4, roughness: 1 }));
       mound.position.set(-6 + c*3, 0.32, -2 + r*4);
       g.add(mound);
     }
@@ -1453,7 +1586,7 @@ function buildRackInterior(prim){
   const W = 8, H = 5, D = 22;             // long corridor
   g.add(roomShell(W, H, D));
   // identical niches lining both walls — the grid of crosses
-  const nicheMat = new THREE.MeshStandardMaterial({ color: 0x202026, roughness: 0.9 });
+  const nicheMat = new THREE.MeshStandardMaterial({ color: 0xd4d2cc, roughness: 0.9 });
   const cols = 9, rows = 3;
   for (const side of [-1, 1]){
     for (let cc=0; cc<cols; cc++){
@@ -1462,7 +1595,7 @@ function buildRackInterior(prim){
         niche.position.set(side * (W/2 - 0.06), 1.1 + rr*1.2, -D/2 + 1.6 + cc*2.2);
         g.add(niche);
         const slot = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7),
-          new THREE.MeshStandardMaterial({ color: 0x07070a }));
+          new THREE.MeshStandardMaterial({ color: 0x4a4844 }));
         slot.position.set(side * (W/2 - 0.12), 1.1 + rr*1.2, -D/2 + 1.6 + cc*2.2);
         slot.rotation.y = side < 0 ? Math.PI/2 : -Math.PI/2;
         g.add(slot);
@@ -1546,6 +1679,8 @@ function enterInterior(idx){
   showLockGate(true);
   crosshairEl.classList.add("hidden");
   interiorHud.classList.add("hidden");
+  // hide exterior fan overlay
+  if (fanOverlayOn){ fanCtx.clearRect(0,0,fanRaysCanvas.width,fanRaysCanvas.height); fanRaysCanvas.classList.add("hidden"); fanOverlayOn = false; }
 }
 
 function showLockGate(show){
@@ -1901,20 +2036,68 @@ function animateNodes(dt){
   nodesGroup.children.forEach((g, i) => {
     const phase = i * 0.7;
     g.position.y = Math.sin(animT * 1.4 + phase) * PARAMS.idleFloat;
-    // gentle yaw wobble — only meshes above the ground tag
     const k = PRIMS[i].kind;
-    g.children.forEach(child => {
-      if (child.geometry && child.geometry.type !== "PlaneGeometry"){
-        if (k === "sphere" || k === "dome" || k === "mesh"){
-          child.rotation.y = Math.sin(animT * 0.4 + phase) * PARAMS.idleSpin * 0.3
-                           + animT * PARAMS.idleSpin * 0.06;
-        }
-      }
-    });
+    const inner = g.userData.inner;
+    const ud = inner && inner.userData;
+
+    // gentle yaw wobble for round forms
+    if ((k === "sphere" || k === "dome" || k === "mesh") && inner){
+      inner.rotation.y = Math.sin(animT * 0.4 + phase) * PARAMS.idleSpin * 0.18
+                       + animT * PARAMS.idleSpin * 0.05;
+    }
     // windfarm blade rotation
-    if (k === "windfarm" && g.userData.blades){
-      g.userData.blades.forEach((bg, bi) => {
+    if (k === "windfarm" && ud && ud.blades){
+      ud.blades.forEach((bg, bi) => {
         bg.rotation.z = animT * (0.8 + bi * 0.15) * (1 + PARAMS.idleSpin);
+      });
+    }
+    // PENDANT — breathing body + swaying organic roots
+    if (k === "pendant" && ud && ud.body){
+      ud.body.scale.y = 1 + Math.sin(animT * 1.05 + phase) * 0.055;
+      ud.body.scale.x = 1 + Math.sin(animT * 0.9 + phase + 1.0) * 0.03;
+      ud.body.rotation.z = Math.sin(animT * 0.5 + phase) * 0.045;
+      ud.rootPivots.forEach((pv) => {
+        const u = pv.userData;
+        pv.rotation.z = Math.sin(animT * u.swaySpeed + u.seed) * u.swayAmp;
+        pv.rotation.x = Math.cos(animT * u.swaySpeed * 0.8 + u.seed) * u.swayAmp;
+        pv.scale.y = 1 + Math.sin(animT * 0.7 + u.seed) * 0.06;
+      });
+    }
+    // WELL — beads of light descending into the shaft
+    if (k === "well" && ud && ud.orbs){
+      ud.orbs.forEach((sp) => {
+        const u = sp.userData;
+        sp.position.y -= u.speed * dt;
+        if (sp.position.y < u.bottomY){
+          u.ang = Math.random()*Math.PI*2;
+          u.rad = Math.random() * ud.wellR * 0.7;
+          sp.position.set(Math.cos(u.ang)*u.rad, u.topY + Math.random()*1.2, Math.sin(u.ang)*u.rad);
+          u.speed = 0.5 + Math.random()*0.7;
+        }
+        const tw = 0.6 + 0.4*Math.sin(animT*3 + u.ang*5);
+        sp.material.opacity = 0.5 + tw*0.5;
+        const sc = u.baseScale * (0.8 + tw*0.4);
+        sp.scale.set(sc, sc, 1);
+      });
+    }
+    // RACK — vertical conveyor: trays empty from the middle, re-stack on top
+    if (k === "rack" && ud && ud.trayUnits){
+      const drift = 0.55;
+      ud.trayUnits.forEach((unit) => {
+        let o = (unit.userData.phase0 + animT * drift) % ud.range;
+        if (o < 0) o += ud.range;
+        unit.position.y = ud.yBottom + o;
+        // subtle pop-out as they ride up
+        unit.position.z = Math.sin(o * 4.0 + unit.userData.phase0) * 0.05 * ud.rackD;
+        // fade in at the bottom, out at the very top to hide the wrap
+        const tNorm = o / ud.range;
+        const edgeFade = Math.min(1, Math.min(tNorm, 1 - tNorm) * 12);
+        unit.children.forEach(ch => {
+          if (ch.material){
+            ch.material.transparent = true;
+            ch.material.opacity = edgeFade;
+          }
+        });
       });
     }
     // focus bounce
@@ -1960,6 +2143,63 @@ function updateInterior(dt){
   }
 }
 
+/* ---- FAN exterior reactive rays (2D overlay converging on the node) ---- */
+let fanAnchors = null;
+const _fanProj = new THREE.Vector3();
+function fanPerimeter(t, w, h){
+  const p = ((t % 1) + 1) % 1 * 4;
+  if (p < 1) return [p * w, 0];
+  if (p < 2) return [w, (p - 1) * h];
+  if (p < 3) return [(3 - p) * w, h];
+  return [0, (4 - p) * h];
+}
+function drawFanRays(node, time){
+  const w = fanRaysCanvas.width, h = fanRaysCanvas.height;
+  fanCtx.clearRect(0, 0, w, h);
+  _fanProj.set(node.x, 1.4, 0).project(camera);
+  if (_fanProj.z > 1) return;                 // behind camera
+  const cx = (_fanProj.x * 0.5 + 0.5) * w;
+  const cy = (-_fanProj.y * 0.5 + 0.5) * h;
+  if (!fanAnchors){
+    fanAnchors = [];
+    const N = 24;
+    for (let i = 0; i < N; i++)
+      fanAnchors.push({ t: i / N, jitter: Math.random() * Math.PI * 2, amp: 6 + Math.random() * 22 });
+  }
+  const mx = cursorPos.x, my = cursorPos.y;
+  fanCtx.lineWidth = 1;
+  fanAnchors.forEach((a, i) => {
+    let [px, py] = fanPerimeter(a.t + Math.sin(time * 0.06 + a.jitter) * 0.012, w, h);
+    px += Math.sin(time * 0.8 + a.jitter) * a.amp;
+    py += Math.cos(time * 0.7 + a.jitter) * a.amp;
+    // reactive: lean the rays toward the cursor
+    px += (mx - px) * 0.05;
+    py += (my - py) * 0.05;
+    const flick = 0.3 + 0.35 * Math.sin(time * 1.7 + i * 0.6);
+    fanCtx.strokeStyle = `rgba(22,22,30,${0.10 + flick * 0.20})`;
+    fanCtx.beginPath();
+    fanCtx.moveTo(px, py);
+    fanCtx.lineTo(cx, cy);
+    fanCtx.stroke();
+  });
+  // bright electric-blue convergence point
+  const r = 3 + 1.5 * Math.sin(time * 3);
+  fanCtx.fillStyle = "rgba(0,85,255,0.55)";
+  fanCtx.beginPath(); fanCtx.arc(cx, cy, Math.max(1.5, r), 0, Math.PI * 2); fanCtx.fill();
+}
+let fanOverlayOn = false;
+function updateFanOverlay(){
+  const show = camState.mode === "focused" && PRIMS[camState.focusIdx].kind === "fan";
+  if (show){
+    if (!fanOverlayOn){ fanRaysCanvas.classList.remove("hidden"); fanOverlayOn = true; }
+    drawFanRays(nodesGroup.children[camState.focusIdx], performance.now() * 0.001);
+  } else if (fanOverlayOn){
+    fanCtx.clearRect(0, 0, fanRaysCanvas.width, fanRaysCanvas.height);
+    fanRaysCanvas.classList.add("hidden");
+    fanOverlayOn = false;
+  }
+}
+
 /* override tick loop with dt + animations + auto-orbit */
 let lastTS = performance.now();
 function tick2(ts){
@@ -1969,9 +2209,11 @@ function tick2(ts){
   /* ---- INTERIOR mode: FPS walk + render interior scene ---- */
   if (camState.mode === "interior"){
     updateInterior(dt);
-    interiorKey.intensity = 0.45 + Math.sin(ts*0.0012)*0.05;
+    updateInteriorFx(dt);
+    interiorKey.intensity = 0.85 + Math.sin(ts*0.0012)*0.08;
     renderer.autoClear = true;
-    renderer.render(interiorScene, camera);
+    if (interiorComposer) interiorComposer.render();
+    else renderer.render(interiorScene, camera);
     requestAnimationFrame(tick2);
     return;
   }
@@ -2028,6 +2270,7 @@ function tick2(ts){
   });
   highlightFocused();
   updateHover();
+  updateFanOverlay();
 
   // cursor lerp
   cursorPos.x += (cursorPos.tx - cursorPos.x) * 0.35;
