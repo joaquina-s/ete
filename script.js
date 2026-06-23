@@ -268,16 +268,118 @@ rail.castShadow = true;
 rail.receiveShadow = true;
 scene.add(rail);
 
+/* ---------------- PBR SHADER (ported from Shadertoy PBR demo) ----------------
+   physically based shading for the exterior tomb forms: SH irradiance ambient
+   (St. Peter's Basilica), GGX distribution/visibility, Schlick fresnel,
+   EnvBRDFApprox. White dielectric. */
+const PBR_VERT = `
+varying vec3 vWN; varying vec3 vWP;
+void main(){
+  vec4 wp = modelMatrix * vec4(position, 1.0);
+  vWP = wp.xyz;
+  vWN = normalize(mat3(modelMatrix) * normal);
+  gl_Position = projectionMatrix * viewMatrix * wp;
+}`;
+const PBR_FRAG = `
+precision highp float;
+#define MATH_PI 3.14159265
+uniform float uRoughness, uMetal;
+uniform vec3 uBaseColor, uLightDir, uLightColor, uFogColor;
+uniform float uFogNear, uFogFar;
+varying vec3 vWN; varying vec3 vWP;
+float saturate(float x){ return clamp(x, 0.0, 1.0); }
+// St. Peter's Basilica SH (https://www.shadertoy.com/view/lt2GRD)
+vec3 SHIrradiance(vec3 nrm){
+  vec3 l00 = vec3(0.3623915,0.2624130,0.2326261);
+  vec3 l1m1= vec3(0.1759131,0.1436266,0.1260569);
+  vec3 l10 = vec3(-0.0247311,-0.0101254,-0.0010745);
+  vec3 l11 = vec3(0.0346500,0.0223184,0.0101350);
+  vec3 l2m2= vec3(0.0198140,0.0144073,0.0043987);
+  vec3 l2m1= vec3(-0.0469596,-0.0254485,-0.0117786);
+  vec3 l20 = vec3(-0.0898667,-0.0760911,-0.0740964);
+  vec3 l21 = vec3(0.0050194,0.0038841,0.0001374);
+  vec3 l22 = vec3(-0.0818750,-0.0321501,0.0033399);
+  const float c1=0.429043, c2=0.511664, c3=0.743125, c4=0.886227, c5=0.247708;
+  return (c1*l22*(nrm.x*nrm.x - nrm.y*nrm.y) + c3*l20*nrm.z*nrm.z + c4*l00 - c5*l20
+        + 2.0*c1*l2m2*nrm.x*nrm.y + 2.0*c1*l21*nrm.x*nrm.z + 2.0*c1*l2m1*nrm.y*nrm.z
+        + 2.0*c2*l11*nrm.x + 2.0*c2*l1m1*nrm.y + 2.0*c2*l10*nrm.z);
+}
+vec3 EnvBRDFApprox(vec3 specularColor, float roughness, float ndotv){
+  const vec4 c0 = vec4(-1.0,-0.0275,-0.572,0.022);
+  const vec4 c1 = vec4(1.0,0.0425,1.04,-0.04);
+  vec4 r = roughness*c0 + c1;
+  float a004 = min(r.x*r.x, exp2(-9.28*ndotv))*r.x + r.y;
+  vec2 AB = vec2(-1.04,1.04)*a004 + r.zw;
+  return specularColor*AB.x + AB.y;
+}
+vec3 EnvRemap(vec3 c){ return pow(2.0*c, vec3(2.2)); }
+vec3 FresnelTerm(vec3 sc, float vdoth){ return sc + (1.0-sc)*pow(1.0-vdoth,5.0); }
+float DistributionTerm(float roughness, float ndoth){
+  float r2 = roughness*roughness;
+  float d = (ndoth*r2 - ndoth)*ndoth + 1.0;
+  return r2/(d*d*MATH_PI);
+}
+float VisibilityTerm(float roughness, float ndotv, float ndotl){
+  float r2 = roughness*roughness;
+  float gv = ndotl*sqrt(ndotv*(ndotv - ndotv*r2) + r2);
+  float gl = ndotv*sqrt(ndotl*(ndotl - ndotl*r2) + r2);
+  return 0.5/max(gv+gl, 0.00001);
+}
+void main(){
+  vec3 N = normalize(vWN);
+  if (!gl_FrontFacing) N = -N;          // correct shading on double-sided faces
+  vec3 V = normalize(cameraPosition - vWP);
+  vec3 rayDir = -V;
+  vec3 refl = reflect(rayDir, N);
+  vec3 baseColor = pow(uBaseColor, vec3(2.2));
+  vec3 diffuseColor = (uMetal==1.0) ? vec3(0.0) : baseColor;
+  vec3 specularColor = (uMetal==1.0) ? baseColor : vec3(0.02);
+  float roughnessE = uRoughness*uRoughness;
+  float roughnessL = max(0.01, roughnessE);
+  vec3 L = normalize(uLightDir);
+  vec3 H = normalize(V + L);
+  float vdoth = saturate(dot(V,H));
+  float ndoth = saturate(dot(N,H));
+  float ndotv = saturate(dot(N,V));
+  float ndotl = saturate(dot(N,L));
+  vec3 envSpecularColor = EnvBRDFApprox(specularColor, roughnessE, ndotv);
+  vec3 env = EnvRemap(SHIrradiance(refl));
+  vec3 diffuse = diffuseColor * EnvRemap(SHIrradiance(N));
+  vec3 specular = envSpecularColor * env;
+  diffuse += diffuseColor * uLightColor * ndotl;
+  vec3 F = FresnelTerm(specularColor, vdoth);
+  float D = DistributionTerm(roughnessL, ndoth);
+  float Vis = VisibilityTerm(roughnessL, ndotv, ndotl);
+  specular += uLightColor * F * (D * Vis * MATH_PI * ndotl);
+  vec3 color = diffuse + specular;
+  color = pow(color*0.4, vec3(1.0/2.2));
+  float fog = smoothstep(uFogNear, uFogFar, distance(cameraPosition, vWP));
+  color = mix(color, uFogColor, fog);
+  gl_FragColor = vec4(color, 1.0);
+}`;
+const pbrMats = [];
+function makePBR(roughness, metal, side){
+  const m = new THREE.ShaderMaterial({
+    uniforms: {
+      uRoughness: { value: roughness },
+      uMetal: { value: metal ? 1 : 0 },
+      uBaseColor: { value: new THREE.Color(0xeeeeec) },
+      uLightDir: { value: new THREE.Vector3(0.6, 0.78, 0.45).normalize() },
+      uLightColor: { value: new THREE.Vector3(2.0, 2.0, 2.0) },
+      uFogColor: { value: new THREE.Color(0xffffff) },
+      uFogNear: { value: PARAMS.fogNear },
+      uFogFar: { value: PARAMS.fogNear + 110 },
+    },
+    vertexShader: PBR_VERT, fragmentShader: PBR_FRAG,
+    side: side || THREE.FrontSide
+  });
+  pbrMats.push(m);
+  return m;
+}
+
 /* ---------------- MATERIALS ---------------- */
-const matWhite = new THREE.MeshPhysicalMaterial({
-  color: 0xe6e6e3, roughness: 0.22, metalness: 0.05,
-  clearcoat: 0.9, clearcoatRoughness: 0.12,
-  reflectivity: 0.65, sheen: 0.2, sheenColor: 0xe6e6e3
-});
-const matPaper = new THREE.MeshPhysicalMaterial({
-  color: 0xdedcd6, roughness: 0.35, metalness: 0.02,
-  clearcoat: 0.6, clearcoatRoughness: 0.18
-});
+const matWhite = makePBR(0.26);
+const matPaper = makePBR(0.5);
 const matInk   = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.1 });
 const matAcid  = new THREE.MeshStandardMaterial({ color: 0xc8ff00, roughness: 0.4, metalness: 0.0, emissive: 0x222200, emissiveIntensity: 0.2 });
 const matLine  = new THREE.LineBasicMaterial({ color: 0x2a2a28, transparent: true, opacity: 0.55 });
@@ -304,10 +406,7 @@ function buildDome(p){
     const t = (i + 0.5) / slices;            // 0..1
     const yLocal = -R + t * 2 * R;            // -R..+R within sphere
     const rad = Math.sqrt(Math.max(0.0001, R*R - yLocal*yLocal));
-    const sliceMat = new THREE.MeshPhysicalMaterial({
-      color: 0xe6e6e3, roughness: 0.22, metalness: 0.05,
-      clearcoat: 0.9, clearcoatRoughness: 0.12
-    });
+    const sliceMat = makePBR(0.2);
     const slice = new THREE.Mesh(
       new THREE.CylinderGeometry(rad, rad, sliceThick, 48),
       sliceMat
@@ -331,7 +430,7 @@ function buildDome(p){
   // base plinth slab
   const plinth = new THREE.Mesh(
     new THREE.BoxGeometry(R*2.2, 0.18, R*2.2),
-    new THREE.MeshPhysicalMaterial({ color: 0xd2d2cd, roughness: 0.5, clearcoat: 0.3 })
+    makePBR(0.5)
   );
   plinth.position.y = 0.13;
   plinth.receiveShadow = true; plinth.castShadow = true;
@@ -366,11 +465,7 @@ function buildFan(p){
   // rays as line segments fanning downward into the ground? No — sit above.
   // Build a half-disc above baseline using thin radial planes
   const rayGeo = new THREE.PlaneGeometry(r, 0.04);
-  const rayMat = new THREE.MeshPhysicalMaterial({
-    color: 0xe6e6e3, roughness: 0.3, metalness: 0.02,
-    clearcoat: 0.4, side: THREE.DoubleSide,
-    transparent: true, opacity: 0.95
-  });
+  const rayMat = makePBR(0.35, false, THREE.DoubleSide);
   for (let i=0;i<rays;i++){
     const t = i/(rays-1);
     const ang = Math.PI * t; // 0..π (upper half)
@@ -435,11 +530,7 @@ function buildSphere(p){
   const r = 0.75;
   const sphere = new THREE.Mesh(
     new THREE.SphereGeometry(r, 64, 48),
-    new THREE.MeshPhysicalMaterial({
-      color: 0xe6e6e3, roughness: 0.15, metalness: 0.1,
-      clearcoat: 1.0, clearcoatRoughness: 0.06,
-      reflectivity: 0.8
-    })
+    makePBR(0.12)
   );
   sphere.position.y = r + 0.25;
   sphere.castShadow = true; sphere.receiveShadow = true;
@@ -496,7 +587,7 @@ function buildBox(p){
   // offset upper box (rotated)
   const upper = new THREE.Mesh(
     new THREE.BoxGeometry(w*0.75, h*0.6, d*0.75),
-    new THREE.MeshPhysicalMaterial({ color: 0xdcdcd9, roughness: 0.32, clearcoat: 0.5 })
+    makePBR(0.32)
   );
   upper.position.set(w*0.08, 0.25 + h + h*0.3, -d*0.05);
   upper.rotation.y = Math.PI/14;
@@ -557,10 +648,7 @@ function buildDatastack(p){
   const above = expand(aboveBase);
   const below = expand(belowBase);
 
-  const slabMat = (color) => new THREE.MeshPhysicalMaterial({
-    color, roughness: 0.4, metalness: 0.0,
-    clearcoat: 0.4, clearcoatRoughness: 0.25
-  });
+  const slabMat = () => makePBR(0.42);
   const edgeMat = new THREE.LineBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.55 });
   const addSlab = (h, color, yCenter) => {
     const slabGeo = new THREE.BoxGeometry(w, h, d);
@@ -628,9 +716,7 @@ function buildPendant(p){
   segs.forEach((s, idx) => {
     if (idx > 0) y -= GAP;
     const geo = new THREE.CylinderGeometry(s.rTop, s.rBot, s.h, 18);
-    const mesh = new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({
-      color: s.color, roughness: 0.4, clearcoat: 0.4
-    }));
+    const mesh = new THREE.Mesh(geo, makePBR(0.4));
     mesh.position.y = y - s.h/2;
     mesh.castShadow = true; mesh.receiveShadow = true;
     body.add(mesh);
@@ -650,7 +736,7 @@ function buildPendant(p){
   // --- organic roots crawling downward from the tip ---
   const rootPivots = [];
   const NROOTS = 6;
-  const rootMat = new THREE.MeshStandardMaterial({ color: 0xbdbbb3, roughness: 0.85, metalness: 0.0 });
+  const rootMat = makePBR(0.7);
   for (let i=0;i<NROOTS;i++){
     const pivot = new THREE.Group();
     pivot.position.y = tipY;
@@ -693,10 +779,7 @@ function buildWell(p){
   const r = 1.0;
   // inverted hemisphere (open upward)
   const geo = new THREE.SphereGeometry(r, 40, 24, 0, Math.PI*2, Math.PI/2, Math.PI/2);
-  const mesh = new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({
-    color: 0xd0d0cb, roughness: 0.35, side: THREE.DoubleSide,
-    clearcoat: 0.6, clearcoatRoughness: 0.15
-  }));
+  const mesh = new THREE.Mesh(geo, makePBR(0.32, false, THREE.DoubleSide));
   mesh.position.y = 0;
   mesh.castShadow = true; mesh.receiveShadow = true;
   g.add(mesh);
@@ -803,10 +886,7 @@ function buildChipArray(p){
   // base plate
   const base = new THREE.Mesh(
     new THREE.BoxGeometry(totalW + 0.3, 0.08, totalD + 0.3),
-    new THREE.MeshPhysicalMaterial({
-      color: 0xdedcd6, roughness: 0.5, metalness: 0.05,
-      clearcoat: 0.3
-    })
+    makePBR(0.5)
   );
   base.position.y = 0.18;
   base.receiveShadow = true; base.castShadow = true;
@@ -816,10 +896,7 @@ function buildChipArray(p){
     for (let c=0;c<cols;c++){
       const cube = new THREE.Mesh(
         new THREE.BoxGeometry(cellW, 0.18 + Math.random()*0.25, cellD),
-        new THREE.MeshPhysicalMaterial({
-          color: 0xe6e6e3, roughness: 0.35, metalness: 0.15,
-          clearcoat: 0.6
-        })
+        makePBR(0.35)
       );
       const x = -totalW/2 + c*(cellW+gap) + cellW/2;
       const z = -totalD/2 + r*(cellD+gap) + cellD/2;
@@ -847,9 +924,7 @@ function buildDataspires(p){
   // base plate
   const base = new THREE.Mesh(
     new THREE.BoxGeometry(w + 0.2, 0.1, 0.6),
-    new THREE.MeshPhysicalMaterial({
-      color: 0xdedcd6, roughness: 0.6, clearcoat: 0.3
-    })
+    makePBR(0.55)
   );
   base.position.y = 0.2;
   base.receiveShadow = true;
@@ -882,7 +957,7 @@ function buildWindfarm(p){
   // base
   const base = new THREE.Mesh(
     new THREE.BoxGeometry(spread + 0.5, 0.08, 0.8),
-    new THREE.MeshPhysicalMaterial({ color: 0xdedcd6, roughness: 0.55 })
+    makePBR(0.55)
   );
   base.position.y = 0.2;
   base.receiveShadow = true;
@@ -951,10 +1026,7 @@ function buildZiggurat(p){
     return Array.from({length: SUBDIV}, () => ({ w: s.w, d: s.d, h: subH, color: s.color }));
   });
   let y = 0.3;
-  const slabMat = (color) => new THREE.MeshPhysicalMaterial({
-    color, roughness: 0.32, metalness: 0.03,
-    clearcoat: 0.6, clearcoatRoughness: 0.15
-  });
+  const slabMat = () => makePBR(0.32);
   const edgeMat = new THREE.LineBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.55 });
   let prevStep = null;
   steps.forEach((s, idx) => {
@@ -1001,9 +1073,7 @@ function buildRack(p){
   const postGeo = new THREE.BoxGeometry(0.08, totalH, 0.08);
   for (let cx of [-w/2+0.05, w/2-0.05]){
     for (let cz of [-d/2+0.05, d/2-0.05]){
-      const post = new THREE.Mesh(postGeo, new THREE.MeshPhysicalMaterial({
-        color: 0xb0b0ac, roughness: 0.45, metalness: 0.2
-      }));
+      const post = new THREE.Mesh(postGeo, makePBR(0.4));
       post.position.set(cx, 0.25 + totalH/2, cz);
       post.castShadow = true;
       g.add(post);
@@ -1016,11 +1086,10 @@ function buildRack(p){
   const trayUnits = [];
   const trayGeo = new THREE.BoxGeometry(w-0.12, trayH, d-0.12);
   const ledGeo = new THREE.BoxGeometry(0.04, 0.03, 0.03);
+  const trayMat = makePBR(0.3);
   for (let i=0;i<trays;i++){
     const unit = new THREE.Group();
-    const tray = new THREE.Mesh(trayGeo, new THREE.MeshPhysicalMaterial({
-      color: 0xe6e6e3, roughness: 0.3, clearcoat: 0.5
-    }));
+    const tray = new THREE.Mesh(trayGeo, trayMat);
     tray.castShadow = true; tray.receiveShadow = true;
     unit.add(tray);
     const edges = new THREE.LineSegments(
@@ -1041,7 +1110,7 @@ function buildRack(p){
   // top cap
   const cap = new THREE.Mesh(
     new THREE.BoxGeometry(w+0.06, 0.06, d+0.06),
-    new THREE.MeshPhysicalMaterial({ color: 0xc8c8c5, roughness: 0.4 })
+    makePBR(0.4)
   );
   cap.position.y = 0.25 + totalH + 0.03;
   cap.castShadow = true;
@@ -2251,6 +2320,10 @@ function applyParams(){
   }
   scene.fog.near = PARAMS.fogNear;
   scene.fog.far  = PARAMS.fogNear + 110;
+  pbrMats.forEach(m => {
+    m.uniforms.uFogNear.value = PARAMS.fogNear;
+    m.uniforms.uFogFar.value = PARAMS.fogNear + 110;
+  });
   const hsl = new THREE.Color();
   hsl.setHSL((PARAMS.ringHue % 360)/360, 1.0, 0.5);
   ringMat.color.copy(hsl);
