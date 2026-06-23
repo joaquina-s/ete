@@ -1,0 +1,6 @@
+# Web-compressed videos ARE committed (each <100MB) so GitHub Pages serves them.
+# Raw multi-GB originals live outside the repo (C:\Users\TortugaMarina\ete-videos-src).
+
+# OS / editor
+.DS_Store
+Thumbs.db

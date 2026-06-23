@@ -195,6 +195,135 @@ body{
   pointer-events: none;
 }
 
+/* ============ ENTER BUTTON ============ */
+#enter-btn{
+  position: absolute;
+  top: 12px; left: 50%;
+  transform: translateX(calc(-50% + 150px));
+  z-index: 6;
+  background: var(--cool);
+  color: var(--paper);
+  border: 1px solid var(--ink);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 var(--ink);
+  transition: transform .15s cubic-bezier(.5,0,.2,1), background .15s, box-shadow .15s;
+}
+#enter-btn:hover{
+  background: #0040cc;
+  transform: translateX(calc(-50% + 150px)) translateY(-1px);
+  box-shadow: 3px 4px 0 var(--ink);
+}
+#enter-btn:active{
+  transform: translateX(calc(-50% + 150px)) translateY(1px);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+#enter-btn.hidden{
+  transform: translateX(calc(-50% + 150px)) translateY(-40px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ============ INTERIOR / FPS ============ */
+#crosshair{
+  position: absolute; left: 50%; top: 50%;
+  width: 14px; height: 14px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 7;
+}
+#crosshair::before, #crosshair::after{
+  content: ""; position: absolute; background: rgba(255,255,255,0.8);
+  box-shadow: 0 0 4px rgba(0,0,0,0.5);
+}
+#crosshair::before{ left: 50%; top: 0; width: 1px; height: 100%; transform: translateX(-50%); }
+#crosshair::after{ top: 50%; left: 0; height: 1px; width: 100%; transform: translateY(-50%); }
+#crosshair.hidden{ display: none; }
+
+#interior-hud{
+  position: absolute; left: 14px; bottom: 14px;
+  z-index: 7;
+  font-family: var(--mono);
+  color: #f4f4f0;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  pointer-events: none;
+  max-width: 70%;
+}
+#interior-hud.hidden{ display: none; }
+.ihud-title{ font-size: 18px; font-weight: 700; letter-spacing: 0.06em; }
+.ihud-meta{ font-size: 11px; color: #b8b8b2; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 2px; }
+.ihud-keys{
+  font-size: 10px; color: #9a9a94; margin-top: 8px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+
+#lock-overlay{
+  position: absolute; inset: 0;
+  z-index: 9;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(8,8,10,0.55);
+  backdrop-filter: blur(3px);
+}
+#lock-overlay.hidden{ display: none; }
+.lock-card{
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  box-shadow: 8px 8px 0 var(--ink);
+  padding: 22px 26px;
+  width: 380px; max-width: calc(100% - 40px);
+  text-align: left;
+}
+.lock-kicker{
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  background: var(--cool); color: var(--paper);
+  display: inline-block; padding: 2px 8px; margin-bottom: 12px;
+}
+.lock-title{
+  font-family: var(--sans); font-weight: 700;
+  font-size: 24px; letter-spacing: -0.01em; margin-bottom: 8px;
+}
+.lock-body{
+  font-family: var(--sans); font-size: 13px; line-height: 1.5;
+  color: var(--ink-2); margin-bottom: 18px;
+}
+#lock-resume{
+  display: block; width: 100%;
+  font-family: var(--mono); font-size: 13px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  background: var(--ink); color: var(--paper);
+  border: 1px solid var(--ink); padding: 12px 0;
+  cursor: pointer;
+  transition: transform .12s cubic-bezier(.5,0,.2,1), background .12s;
+}
+#lock-resume:hover{ background: var(--cool); }
+#lock-resume:active{ transform: scale(0.97); }
+#lock-exit{
+  display: block; width: 100%;
+  margin-top: 10px;
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  background: transparent; color: var(--dim);
+  border: none; cursor: pointer; padding: 4px 0;
+}
+#lock-exit:hover{ color: var(--ink); }
+
+/* hide exterior chrome while inside a tomb */
+body.interior #hud,
+body.interior #compass,
+body.interior #minimap,
+body.interior #params,
+body.interior #panel,
+body.interior #back-btn,
+body.interior #enter-btn,
+body.interior #cursor{
+  display: none !important;
+}
+
 /* ============ PARAMS PANEL ============ */
 #params{
   position: absolute; right: 14px; top: 12px;

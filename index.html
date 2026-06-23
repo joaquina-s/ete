@@ -20,7 +20,7 @@
     <div class="corp-left">
       <span class="logo">⌬ ETE</span>
       <span class="sep">//</span>
-      <span class="dept">DEPT.OF.PROTOCOL_LANDSCAPING / 3D.INDEX</span>
+      <span class="dept">RITUAL.MEMORY.DATACENTER / NECROPOLIS.INDEX</span>
     </div>
     <div class="corp-right">
       <span class="badge">v0.永土耳</span>
@@ -33,11 +33,29 @@
     <canvas id="stage"></canvas>
 
     <button id="back-btn" class="hidden">← BACK.TO.OVERVIEW</button>
+    <button id="enter-btn" class="hidden">↘ ENTER.TOMB</button>
 
     <div id="hud">
-      <div class="hud-line">PROTOCOL :: GEOMETRICAL.LANDSCAPING / DECENTRALIZED.MEMORY.ARRAY</div>
-      <div class="hud-line dim">← → traverse nodes · ↑ ↓ zoom · WASD free-fly · Click primitive to decode · Esc release</div>
+      <div class="hud-line">RITUAL.MEMORY.DATACENTER :: footage of funerals, mourning &amp; burial rites</div>
+      <div class="hud-line dim">← → traverse tombs · click a tomb to focus · ENTER to step inside · Esc release</div>
       <div class="hud-line dim">node <span id="node-idx">— / —</span> · pos <span id="coord">[0.00, 0.00, 0.00]</span></div>
+    </div>
+
+    <!-- interior FPS overlays -->
+    <div id="crosshair" class="hidden"></div>
+    <div id="interior-hud" class="hidden">
+      <div class="ihud-title" id="ihud-title">—</div>
+      <div class="ihud-meta" id="ihud-meta">—</div>
+      <div class="ihud-keys">WASD / ↑↓←→ walk · MOUSE look · SHIFT run · M mute · ESC exit</div>
+    </div>
+    <div id="lock-overlay" class="hidden">
+      <div class="lock-card">
+        <div class="lock-kicker" id="lock-kicker">∎ TOMB</div>
+        <div class="lock-title" id="lock-title">ENTER THE CHAMBER</div>
+        <div class="lock-body" id="lock-body">You are about to step inside a tomb of ritual memory.</div>
+        <button id="lock-resume">CLICK TO ENTER ▸</button>
+        <button id="lock-exit">← leave to the surface</button>
+      </div>
     </div>
 
     <aside id="panel" class="hidden">
@@ -50,7 +68,7 @@
       <p id="panel-body">—</p>
       <div class="panel-foot">
         <span class="tag" id="panel-tag">∎</span>
-        <span class="dim">visceral data agency // counter-extractive primitive</span>
+        <span class="dim">ritual memory // a tomb in the machine — ENTER to step inside</span>
       </div>
     </aside>
 
@@ -95,8 +113,8 @@
 
   <footer class="corp-foot">
     <span>© ETE.INSTITUTE — Eternal Terra Ear</span>
-    <span class="dim">"Decoding weaponized computational structures through decentralized community building."</span>
-    <span class="dim">CN · CO · IR · AR</span>
+    <span class="dim">"Storing what is most human in the most humanless space. A testament for the machines, and the modelled people, still to come."</span>
+    <span class="dim">an archive that can outlast us</span>
   </footer>
 
   <script type="module" src="script.js"></script>
