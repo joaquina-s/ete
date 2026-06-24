@@ -1173,12 +1173,12 @@ PRIMS.forEach((p, i) => {
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
     map: floatTex, transparent: true,
     depthWrite: false, depthTest: false,
-    toneMapped: false
+    toneMapped: false,
+    opacity: 0          // hidden until hovered (fade in)
   }));
   sprite.scale.set(4.8, 2.5, 1);
   sprite.position.set(p.x, labelBaseY, 0);
   labelScene.add(sprite);
-  labelEntries.push({ sprite, nodeIdx: i, baseY: labelBaseY, isBelow });
 
   // tether line from node to label
   const tetherTop = isBelow ? -0.2 : 2.7;
@@ -1188,10 +1188,12 @@ PRIMS.forEach((p, i) => {
     new THREE.Vector3(p.x, tetherBottom, 0),
   ]);
   const tether = new THREE.Line(tetherGeo, new THREE.LineBasicMaterial({
-    color: 0x000000, transparent: true, opacity: 0.92
+    color: 0x000000, transparent: true, opacity: 0
   }));
   tether.userData.nodeIdx = i;
   labelScene.add(tether);
+
+  labelEntries.push({ sprite, tether, nodeIdx: i, baseY: labelBaseY, isBelow, cur: 0 });
 
   nodesGroup.add(group);
   nodeMeshes.push(hit);
@@ -1296,9 +1298,12 @@ function makeLabelTexture(top, bottom){
 }
 
 /* ---------------- CAMERA NAV ---------------- */
-const TRACK_CENTER_X = TRACK_LEN / 2;
-const OVERVIEW_CAM = new THREE.Vector3(TRACK_CENTER_X, 3.0, 50);
-const OVERVIEW_TARGET = new THREE.Vector3(TRACK_CENTER_X, 0.6, 0);
+// the main view focuses only on the first 4 tombs — camera closer
+const FOCUS_COUNT = 4;
+const FOCUS_CENTER_X = ((FOCUS_COUNT - 1) * SPACING) / 2;
+const TRACK_CENTER_X = FOCUS_CENTER_X;
+const OVERVIEW_CAM = new THREE.Vector3(FOCUS_CENTER_X, 2.8, 24);
+const OVERVIEW_TARGET = new THREE.Vector3(FOCUS_CENTER_X, 0.9, 0);
 
 const camState = {
   mode: "overview",   // "overview" | "focused"
@@ -1311,7 +1316,7 @@ const camState = {
 function focusNode(i, opts = {}){
   const { smooth = true, openInfo = false } = opts;
   camState.mode = "focused";
-  camState.focusIdx = (i + PRIMS.length) % PRIMS.length;
+  camState.focusIdx = ((i % FOCUS_COUNT) + FOCUS_COUNT) % FOCUS_COUNT;   // cycle within the first 4
   const p = PRIMS[camState.focusIdx];
   camState.target.set(p.x, 0.7, 0);
   camState.desiredPos.set(p.x, 1.4, 5.5);
@@ -1351,7 +1356,7 @@ function setBackBtn(show){
 }
 
 function updateMini(){
-  const t = camState.focusIdx / (PRIMS.length - 1);
+  const t = camState.focusIdx / (FOCUS_COUNT - 1);
   const w = miniCursor.parentElement.clientWidth - 12;
   miniCursor.style.left = `${6 + t * w}px`;
 }
@@ -2231,11 +2236,12 @@ canvas.addEventListener("click", (e) => {
   setTimeout(() => cursorEl.classList.remove("click"), 400);
   if (hits.length){
     const idx = hits[0].object.userData.idx;
+    if (idx >= FOCUS_COUNT) return;            // only the first 4 tombs are interactive
     // clicking the already-focused tomb steps inside
     if (camState.mode === "focused" && idx === camState.focusIdx){
       enterInterior(idx);
     } else {
-      focusNode(idx, {openInfo:true});
+      focusNode(idx, {openInfo:false});        // cards show on hover, not click
     }
   }
 });
@@ -2415,9 +2421,11 @@ window.addEventListener("pointermove", (e) => {
 /* hover detection */
 let hoverIdx = -1;
 function updateHover(){
+  if (camState.mode === "interior"){ if (hoverIdx !== -1){ hoverIdx = -1; cursorEl.classList.remove("hot"); } return; }
   ray.setFromCamera(ndc, camera);
   const hits = ray.intersectObjects(nodeMeshes, false);
-  const newHover = hits.length ? hits[0].object.userData.idx : -1;
+  let newHover = hits.length ? hits[0].object.userData.idx : -1;
+  if (newHover >= FOCUS_COUNT) newHover = -1;   // only the first 4 tombs respond
   if (newHover !== hoverIdx){
     hoverIdx = newHover;
     cursorEl.classList.toggle("hot", hoverIdx >= 0);
@@ -2498,7 +2506,7 @@ function animateNodes(dt){
     }
     // RACK — vertical conveyor: trays empty from the middle, re-stack on top
     if (k === "rack" && ud && ud.trayUnits){
-      const drift = 0.55;
+      const drift = 0.083;   // 85% slower than the prior 0.55
       ud.trayUnits.forEach((unit) => {
         let o = (unit.userData.phase0 + animT * drift) % ud.range;
         if (o < 0) o += ud.range;
@@ -2661,9 +2669,9 @@ function tick2(ts){
     camera.position.lerp(tmpV, PARAMS.camEase);
     camera.lookAt(camState.target);
   } else {
-    // overview: gentle drift, framing all nodes
-    const driftX = Math.sin(animT * 0.12) * 3.0;
-    const driftY = Math.sin(animT * 0.18) * 0.4;
+    // overview: gentle drift, framing the first 4 tombs
+    const driftX = Math.sin(animT * 0.12) * 1.1;
+    const driftY = Math.sin(animT * 0.18) * 0.3;
     tmpV.set(
       camState.desiredPos.x + driftX,
       camState.desiredPos.y + driftY,
@@ -2696,10 +2704,18 @@ function tick2(ts){
 
   coordEl.textContent = `[${camera.position.x.toFixed(2)}, ${camera.position.y.toFixed(2)}, ${camera.position.z.toFixed(2)}]`;
 
-  // sync label sprite Y with each node's idle bobbing
-  labelEntries.forEach(({ sprite, nodeIdx, baseY }) => {
-    const node = nodesGroup.children[nodeIdx];
-    sprite.position.y = baseY + node.position.y;
+  // sync label Y with the node bob + fade the card in/out on hover
+  labelEntries.forEach((e) => {
+    const node = nodesGroup.children[e.nodeIdx];
+    e.sprite.position.y = e.baseY + node.position.y;
+    // only the hovered tomb's card shows (fade in of the PNG)
+    const target = (e.nodeIdx === hoverIdx) ? 1 : 0;
+    e.cur += (target - e.cur) * 0.14;
+    if (e.cur < 0.002) e.cur = target === 0 ? 0 : e.cur;
+    e.sprite.material.opacity = e.cur;
+    e.tether.material.opacity = e.cur * 0.85;
+    e.sprite.visible = e.cur > 0.003;
+    e.tether.visible = e.cur > 0.003;
   });
 
   composer.render();
