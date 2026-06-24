@@ -1176,8 +1176,9 @@ PRIMS.forEach((p, i) => {
     toneMapped: false,
     opacity: 0          // hidden until hovered (fade in)
   }));
-  sprite.scale.set(4.8, 2.5, 1);
+  sprite.scale.set(3.6, 1.9, 1);
   sprite.position.set(p.x, labelBaseY, 0);
+  sprite.renderOrder = 999;
   labelScene.add(sprite);
 
   // tether line from node to label
@@ -2271,6 +2272,9 @@ canvas.addEventListener("wheel", (e) => {
 
 /* ---------------- LOOP ---------------- */
 const tmpV = new THREE.Vector3();
+// temps for the hover callout (card deploys near the camera)
+const _camFwd = new THREE.Vector3(), _camRight = new THREE.Vector3(), _camUp = new THREE.Vector3();
+const _fgBase = new THREE.Vector3(), _nodeTop = new THREE.Vector3(), _rel = new THREE.Vector3(), _cardPos = new THREE.Vector3();
 function tick(){
   // free-fly
   if (camState.freeFly){
@@ -2704,18 +2708,37 @@ function tick2(ts){
 
   coordEl.textContent = `[${camera.position.x.toFixed(2)}, ${camera.position.y.toFixed(2)}, ${camera.position.z.toFixed(2)}]`;
 
-  // sync label Y with the node bob + fade the card in/out on hover
+  // hover callout: a line traces from the tomb out toward the camera, where
+  // the card deploys in the foreground (closer to the viewer)
+  camera.getWorldDirection(_camFwd);
+  _camRight.crossVectors(_camFwd, camera.up).normalize();
+  _camUp.crossVectors(_camRight, _camFwd).normalize();
+  // foreground anchor: in front of the camera, lower third
+  _fgBase.copy(camera.position).addScaledVector(_camFwd, 7.0).addScaledVector(_camUp, -1.6);
   labelEntries.forEach((e) => {
-    const node = nodesGroup.children[e.nodeIdx];
-    e.sprite.position.y = e.baseY + node.position.y;
-    // only the hovered tomb's card shows (fade in of the PNG)
     const target = (e.nodeIdx === hoverIdx) ? 1 : 0;
-    e.cur += (target - e.cur) * 0.14;
-    if (e.cur < 0.002) e.cur = target === 0 ? 0 : e.cur;
+    e.cur += (target - e.cur) * 0.12;
+    if (e.cur < 0.0025 && target === 0) e.cur = 0;
+    const vis = e.cur > 0.004;
+    e.sprite.visible = vis; e.tether.visible = vis;
+    if (!vis) return;
+    const node = nodesGroup.children[e.nodeIdx];
+    const px = PRIMS[e.nodeIdx].x;
+    _nodeTop.set(px, 2.5 + node.position.y, 0);
+    // card sits on the same side as its tomb
+    _rel.copy(_nodeTop).sub(camera.position);
+    const side = Math.sign(_rel.dot(_camRight)) || 1;
+    _cardPos.copy(_fgBase).addScaledVector(_camRight, side * 2.0);
+    // ease the card sliding out from the tomb to the foreground as it fades in
+    const ease = e.cur * e.cur * (3 - 2 * e.cur);
+    e.sprite.position.lerpVectors(_nodeTop, _cardPos, ease);
     e.sprite.material.opacity = e.cur;
-    e.tether.material.opacity = e.cur * 0.85;
-    e.sprite.visible = e.cur > 0.003;
-    e.tether.visible = e.cur > 0.003;
+    // tether: tomb -> current card position (grows as the card deploys)
+    const pos = e.tether.geometry.attributes.position;
+    pos.setXYZ(0, _nodeTop.x, _nodeTop.y, _nodeTop.z);
+    pos.setXYZ(1, e.sprite.position.x, e.sprite.position.y, e.sprite.position.z);
+    pos.needsUpdate = true;
+    e.tether.material.opacity = e.cur * 0.8;
   });
 
   composer.render();
