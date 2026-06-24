@@ -129,6 +129,14 @@ scene.fog = new THREE.Fog(0xffffff, 35, 160);
 const labelScene = new THREE.Scene();
 const labelEntries = []; // { sprite, nodeIdx, baseY }
 
+// PNG card background (drop the attached file at assets/card-bg.png) — declared
+// early so makeFloatLabel can read it while labels are built at init
+const cardBgImg = new Image();
+let cardBgReady = false;
+cardBgImg.onload = () => { cardBgReady = true; rebuildLabels(); };
+cardBgImg.onerror = () => { cardBgReady = false; };
+cardBgImg.src = "assets/card-bg.png";
+
 const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 500);
 camera.position.set(0, 1.8, 10);
 
@@ -383,7 +391,10 @@ const matPaper = makePBR(0.5);
 const matInk   = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.1 });
 const matAcid  = new THREE.MeshStandardMaterial({ color: 0xc8ff00, roughness: 0.4, metalness: 0.0, emissive: 0x222200, emissiveIntensity: 0.2 });
 const matLine  = new THREE.LineBasicMaterial({ color: 0x2a2a28, transparent: true, opacity: 0.55 });
-const matEdge  = new THREE.LineBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.7 });
+const matEdge  = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.95 });
+
+// the long path/rail between the tombs gets the same white PBR shading
+rail.material = makePBR(0.45);
 
 /* ---------------- PRIMITIVES ---------------- */
 const nodesGroup = new THREE.Group();
@@ -422,7 +433,7 @@ function buildDome(p){
     }
     const topRing = new THREE.LineLoop(
       new THREE.BufferGeometry().setFromPoints(topPts),
-      new THREE.LineBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.5 })
+      new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.9 })
     );
     topRing.position.copy(slice.position);
     g.add(topRing);
@@ -649,7 +660,7 @@ function buildDatastack(p){
   const below = expand(belowBase);
 
   const slabMat = () => makePBR(0.42);
-  const edgeMat = new THREE.LineBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.55 });
+  const edgeMat = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.92 });
   const addSlab = (h, color, yCenter) => {
     const slabGeo = new THREE.BoxGeometry(w, h, d);
     const slab = new THREE.Mesh(slabGeo, slabMat(color));
@@ -722,7 +733,7 @@ function buildPendant(p){
     body.add(mesh);
     const edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(geo, 25),
-      new THREE.LineBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.55 })
+      new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.92 })
     );
     edges.position.copy(mesh.position);
     body.add(edges);
@@ -857,7 +868,7 @@ function buildMesh(p){
   // edges
   const edges = new THREE.LineSegments(
     new THREE.EdgesGeometry(geo, 1),
-    new THREE.LineBasicMaterial({ color: 0x1a1a1a })
+    new THREE.LineBasicMaterial({ color: 0x000000 })
   );
   edges.position.copy(skin.position);
   g.add(edges);
@@ -1027,7 +1038,7 @@ function buildZiggurat(p){
   });
   let y = 0.3;
   const slabMat = () => makePBR(0.32);
-  const edgeMat = new THREE.LineBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.55 });
+  const edgeMat = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.92 });
   let prevStep = null;
   steps.forEach((s, idx) => {
     if (idx > 0){
@@ -1094,7 +1105,7 @@ function buildRack(p){
     unit.add(tray);
     const edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(trayGeo, 25),
-      new THREE.LineBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.5 })
+      new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.9 })
     );
     unit.add(edges);
     for (let l=0;l<3;l++){
@@ -1177,7 +1188,7 @@ PRIMS.forEach((p, i) => {
     new THREE.Vector3(p.x, tetherBottom, 0),
   ]);
   const tether = new THREE.Line(tetherGeo, new THREE.LineBasicMaterial({
-    color: 0x222222, transparent: true, opacity: 0.55
+    color: 0x000000, transparent: true, opacity: 0.92
   }));
   tether.userData.nodeIdx = i;
   labelScene.add(tether);
@@ -1187,48 +1198,66 @@ PRIMS.forEach((p, i) => {
 });
 
 /* floating sprite info label */
+function roundRectPath(ctx, x, y, w, h, r){
+  if (ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);     ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
 function makeFloatLabel(p){
   const c = document.createElement("canvas");
   c.width = 1024; c.height = 540;
   const ctx = c.getContext("2d");
-  // bg card
-  ctx.fillStyle = "rgba(250,250,246,0.30)";
-  ctx.fillRect(0,0,c.width,c.height);
-  // border
-  ctx.strokeStyle = "#111";
-  ctx.lineWidth = 6;
-  ctx.strokeRect(3,3,c.width-6,c.height-6);
-  // accent bar top — electric blue
-  ctx.fillStyle = "#0055ff";
-  ctx.fillRect(3,3,c.width-6,40);
-  ctx.fillStyle = "#fafaf6";
-  ctx.font = "bold 32px JetBrains Mono, monospace";
+  // background: PNG texture if available, else a soft rounded card
+  if (cardBgReady){
+    ctx.drawImage(cardBgImg, 0, 0, c.width, c.height);
+  } else {
+    ctx.fillStyle = "rgba(250,250,246,0.32)";
+    roundRectPath(ctx, 8, 8, c.width-16, c.height-16, 30);
+    ctx.fill();
+  }
   ctx.textAlign = "left"; ctx.textBaseline = "top";
-  ctx.fillText(`${p.id} · ${p.kind.toUpperCase()}`, 24, 8);
-  // title
+  // id · kind (Jost)
+  ctx.fillStyle = "#0a0a0a";
+  ctx.font = "500 30px Jost, sans-serif";
+  ctx.fillText(`${p.id} · ${p.kind.toUpperCase()}`, 32, 22);
+  // title (Caramel script)
   ctx.fillStyle = "#111";
-  ctx.font = "bold 70px Helvetica Neue, Arial, sans-serif";
-  ctx.textBaseline = "top";
-  ctx.fillText(p.title, 28, 70);
-  // meta
-  ctx.fillStyle = "#7a7a74";
-  ctx.font = "30px JetBrains Mono, monospace";
-  ctx.fillText(p.meta, 28, 170);
+  ctx.font = "400 100px Caramel, cursive";
+  ctx.fillText(p.title, 26, 44);
+  // meta (Jost)
+  ctx.fillStyle = "#5a5a54";
+  ctx.font = "400 26px Jost, sans-serif";
+  ctx.fillText(p.meta, 32, 196);
   // tag chip
-  ctx.font = "bold 28px JetBrains Mono, monospace";
-  const tagW = ctx.measureText(p.tag).width + 36;
-  ctx.fillStyle = "#111";
-  ctx.fillRect(28, 230, tagW, 50);
+  ctx.font = "500 26px Jost, sans-serif";
+  const tagW = ctx.measureText(p.tag).width + 34;
+  ctx.fillStyle = "#0a0a0a";
+  roundRectPath(ctx, 32, 238, tagW, 46, 8); ctx.fill();
   ctx.fillStyle = "#fafaf6";
-  ctx.fillText(p.tag, 46, 240);
-  // body
+  ctx.fillText(p.tag, 49, 248);
+  // body (Jost)
   ctx.fillStyle = "#2a2a28";
-  ctx.font = "28px Helvetica Neue, Arial, sans-serif";
+  ctx.font = "400 28px Jost, sans-serif";
   const body = p.body.length > 180 ? p.body.slice(0, 177) + "…" : p.body;
-  wrapText(ctx, body, 28, 310, c.width-56, 38);
+  wrapText(ctx, body, 32, 312, c.width-64, 38);
   const tex = new THREE.CanvasTexture(c);
   tex.anisotropy = 16;
   return tex;
+}
+
+// regenerate every floating label texture (after fonts / bg image load)
+function rebuildLabels(){
+  if (typeof labelEntries === "undefined" || !labelEntries.length) return;
+  labelEntries.forEach(({ sprite, nodeIdx }) => {
+    const tex = makeFloatLabel(PRIMS[nodeIdx]);
+    if (sprite.material.map) sprite.material.map.dispose();
+    sprite.material.map = tex;
+    sprite.material.needsUpdate = true;
+  });
 }
 function wrapText(ctx, text, x, y, maxW, lineH){
   const words = text.split(" ");
@@ -1255,11 +1284,11 @@ function makeLabelTexture(top, bottom){
   ctx.lineWidth = 2;
   ctx.strokeRect(4,4,c.width-8,c.height-8);
   ctx.fillStyle = "#111";
-  ctx.font = "bold 32px JetBrains Mono, monospace";
+  ctx.font = "bold 32px Jost, sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText(top, c.width/2, 44);
   ctx.fillStyle = "#7a7a74";
-  ctx.font = "22px JetBrains Mono, monospace";
+  ctx.font = "22px Jost, sans-serif";
   ctx.fillText(bottom, c.width/2, 90);
   const tex = new THREE.CanvasTexture(c);
   tex.anisotropy = 8;
@@ -1381,14 +1410,14 @@ function makePlaceholderTexture(prim){
   x.fillStyle = "rgba(255,255,255,0.025)";
   for (let y=0;y<1024;y+=4) x.fillRect(0,y,1024,2);
   x.fillStyle = "#3a3a3a";
-  x.font = "bold 44px JetBrains Mono, monospace";
+  x.font = "bold 44px Jost, sans-serif";
   x.textAlign = "center";
   x.fillText("∎ NO SIGNAL", 512, 470);
   x.fillStyle = "#6a6a64";
-  x.font = "26px JetBrains Mono, monospace";
+  x.font = "26px Jost, sans-serif";
   x.fillText(prim.tag.replace("∎ ",""), 512, 530);
   x.fillStyle = "#2a2a2a";
-  x.font = "20px JetBrains Mono, monospace";
+  x.font = "20px Jost, sans-serif";
   x.fillText("FOOTAGE PENDING — RESEARCH ONGOING", 512, 580);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -2691,3 +2720,13 @@ applyParams();
 goOverview();
 camera.position.copy(OVERVIEW_CAM).add(new THREE.Vector3(0, 6, 8));
 requestAnimationFrame(tick2);
+
+// redraw the canvas labels once Jost + Caramel are actually loaded
+if (document.fonts && document.fonts.ready){
+  Promise.all([
+    document.fonts.load('400 100px "Caramel"'),
+    document.fonts.load('500 30px "Jost"'),
+    document.fonts.load('400 28px "Jost"'),
+  ]).then(rebuildLabels).catch(() => {});
+  document.fonts.ready.then(rebuildLabels);
+}
