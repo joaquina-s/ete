@@ -1600,7 +1600,7 @@ const _fanTmp = new THREE.Vector3();
 function updateInteriorFx(dt){
   // raymarched metaball dome — slowed time + keep it centred on the camera
   if (organicBlob && organicBlob.raymarch){
-    const t = performance.now() * 0.001 * 0.12;   // 60% slower than the prior 0.30x
+    const t = performance.now() * 0.001 * 0.06;   // half the previous 0.12x speed
     organicBlob.mat.uniforms.uTime.value = t;
     organicBlob.dome.position.copy(camera.position);
   }
@@ -1861,7 +1861,7 @@ precision highp float;
 uniform float uTime;
 varying vec3 vDir;
 const int MAX_STEPS = 90;
-const int NUM_SPHERES = 12;
+const int NUM_SPHERES = 4;   // 70% fewer "worms" crossing the room
 float hash(float n){ return fract(sin(n*43758.5453123)); }
 float sphereSDF(vec3 pos, float radius, vec3 smpl){ return length(pos - smpl) - radius; }
 float planeSDF(vec3 dir, float offset, vec3 smpl){ return dot(dir, smpl) + offset; }
