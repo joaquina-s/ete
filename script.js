@@ -2731,9 +2731,14 @@ function tick2(ts){
     const node = nodesGroup.children[e.nodeIdx];
     const px = PRIMS[e.nodeIdx].x;
     _nodeTop.set(px, 2.5 + node.position.y, 0);
-    // place the card fully inside the frustum, on the tomb's side, lower area
-    _rel.copy(_nodeTop).sub(camera.position);
-    const side = Math.sign(_rel.dot(_camRight)) || 1;
+    // place the card fully inside the frustum, on the tomb's side, lower area.
+    // freeze the side when the card starts deploying so it doesn't flip-flop
+    // (and visually duplicate) while the camera orbits the tomb.
+    if (e.side === undefined || (target === 1 && e.cur < 0.03)){
+      _rel.copy(_nodeTop).sub(camera.position);
+      e.side = Math.sign(_rel.dot(_camRight)) || 1;
+    }
+    const side = e.side;
     const halfW = e.sprite.scale.x * 0.5, halfH = e.sprite.scale.y * 0.5, margin = 0.3;
     const sideOff = side * Math.max(0, hExt - halfW - margin);
     const upOff = -Math.max(0, vExt - halfH - margin);
