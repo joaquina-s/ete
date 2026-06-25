@@ -1176,7 +1176,7 @@ PRIMS.forEach((p, i) => {
     toneMapped: false,
     opacity: 0          // hidden until hovered (fade in)
   }));
-  sprite.scale.set(3.6, 1.9, 1);
+  sprite.scale.set(2.6, 1.37, 1);
   sprite.position.set(p.x, labelBaseY, 0);
   sprite.renderOrder = 999;
   labelScene.add(sprite);
@@ -1227,10 +1227,10 @@ function makeFloatLabel(p){
   ctx.fillStyle = "#0a0a0a";
   ctx.font = "500 30px Jost, sans-serif";
   ctx.fillText(`${p.id} · ${p.kind.toUpperCase()}`, 32, 22);
-  // title (Caramel script)
+  // title (Jost)
   ctx.fillStyle = "#111";
-  ctx.font = "400 100px Caramel, cursive";
-  ctx.fillText(p.title, 26, 44);
+  ctx.font = "700 62px Jost, sans-serif";
+  ctx.fillText(p.title, 30, 56);
   // meta (Jost)
   ctx.fillStyle = "#5a5a54";
   ctx.font = "400 26px Jost, sans-serif";
@@ -2713,8 +2713,8 @@ function tick2(ts){
   camera.getWorldDirection(_camFwd);
   _camRight.crossVectors(_camFwd, camera.up).normalize();
   _camUp.crossVectors(_camRight, _camFwd).normalize();
-  // foreground anchor: in front of the camera, lower third
-  _fgBase.copy(camera.position).addScaledVector(_camFwd, 7.0).addScaledVector(_camUp, -1.6);
+  // foreground anchor: close in front of the camera, lower third
+  _fgBase.copy(camera.position).addScaledVector(_camFwd, 4.2).addScaledVector(_camUp, -1.15);
   labelEntries.forEach((e) => {
     const target = (e.nodeIdx === hoverIdx) ? 1 : 0;
     e.cur += (target - e.cur) * 0.12;
@@ -2728,7 +2728,7 @@ function tick2(ts){
     // card sits on the same side as its tomb
     _rel.copy(_nodeTop).sub(camera.position);
     const side = Math.sign(_rel.dot(_camRight)) || 1;
-    _cardPos.copy(_fgBase).addScaledVector(_camRight, side * 2.0);
+    _cardPos.copy(_fgBase).addScaledVector(_camRight, side * 1.5);
     // ease the card sliding out from the tomb to the foreground as it fades in
     const ease = e.cur * e.cur * (3 - 2 * e.cur);
     e.sprite.position.lerpVectors(_nodeTop, _cardPos, ease);
@@ -2760,10 +2760,10 @@ goOverview();
 camera.position.copy(OVERVIEW_CAM).add(new THREE.Vector3(0, 6, 8));
 requestAnimationFrame(tick2);
 
-// redraw the canvas labels once Jost + Caramel are actually loaded
+// redraw the canvas labels once Jost is actually loaded
 if (document.fonts && document.fonts.ready){
   Promise.all([
-    document.fonts.load('400 100px "Caramel"'),
+    document.fonts.load('700 62px "Jost"'),
     document.fonts.load('500 30px "Jost"'),
     document.fonts.load('400 28px "Jost"'),
   ]).then(rebuildLabels).catch(() => {});
