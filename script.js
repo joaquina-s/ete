@@ -1984,7 +1984,7 @@ function ambiancePoint(ext){
   return [ THREE.MathUtils.lerp(ext.minX, ext.maxX, Math.random()),
            THREE.MathUtils.lerp(ext.minZ, ext.maxZ, Math.random()) ];
 }
-function addInteriorAmbiance(root){
+function addInteriorAmbiance(root, withTendrils = true){
   const ext = interiorExtent();
   const beadTex = makeDotTexture();
   // descending light beads
@@ -2006,7 +2006,7 @@ function addInteriorAmbiance(root){
   // swaying organic tendrils hanging from the ceiling
   const tendrils = [];
   const tMat = new THREE.MeshStandardMaterial({ color: 0xd6d4cc, roughness: 0.85 });
-  const NT = ext.centric ? 5 : 4;
+  const NT = withTendrils ? (ext.centric ? 5 : 4) : 0;
   for (let i=0;i<NT;i++){
     const pivot = new THREE.Group();
     const [x,z] = ambiancePoint(ext);
@@ -2063,7 +2063,8 @@ function prepareInterior(idx){
   const builder = INTERIOR_BUILDERS[prim.interior] || buildChamberInterior;
   interiorScreens = [];
   interiorRoot = builder(prim);
-  if (prim.interior !== "organic") addInteriorAmbiance(interiorRoot);  // shader field stands alone
+  // shader field stands alone; the fan tomb drops the ceiling tendrils
+  if (prim.interior !== "organic") addInteriorAmbiance(interiorRoot, prim.interior !== "fan");
   interiorScene.add(interiorRoot);
   // place camera at spawn, turned 180° so it faces the screen (not the wall)
   fps.yaw = interiorSpawn.yaw + Math.PI; fps.pitch = 0;
@@ -2713,11 +2714,16 @@ function tick2(ts){
   camera.getWorldDirection(_camFwd);
   _camRight.crossVectors(_camFwd, camera.up).normalize();
   _camUp.crossVectors(_camRight, _camFwd).normalize();
-  // foreground anchor: close in front of the camera, lower third
-  _fgBase.copy(camera.position).addScaledVector(_camFwd, 4.2).addScaledVector(_camUp, -1.15);
+  // visible half-extents at the card distance, so the whole card stays on screen
+  const cardD = 4.8;
+  const vExt = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * cardD;
+  const hExt = vExt * camera.aspect;
+  // which card shows: the focused tomb (when zoomed in) or the hovered one
+  const effHover = (camState.mode === "focused") ? camState.focusIdx : hoverIdx;
   labelEntries.forEach((e) => {
-    const target = (e.nodeIdx === hoverIdx) ? 1 : 0;
-    e.cur += (target - e.cur) * 0.12;
+    const target = (e.nodeIdx === effHover) ? 1 : 0;
+    // slow fade-in (~90% slower) but quick fade-out so cards never overlap
+    e.cur += (target - e.cur) * (target === 1 ? 0.012 : 0.22);
     if (e.cur < 0.0025 && target === 0) e.cur = 0;
     const vis = e.cur > 0.004;
     e.sprite.visible = vis; e.tether.visible = vis;
@@ -2725,10 +2731,16 @@ function tick2(ts){
     const node = nodesGroup.children[e.nodeIdx];
     const px = PRIMS[e.nodeIdx].x;
     _nodeTop.set(px, 2.5 + node.position.y, 0);
-    // card sits on the same side as its tomb
+    // place the card fully inside the frustum, on the tomb's side, lower area
     _rel.copy(_nodeTop).sub(camera.position);
     const side = Math.sign(_rel.dot(_camRight)) || 1;
-    _cardPos.copy(_fgBase).addScaledVector(_camRight, side * 1.5);
+    const halfW = e.sprite.scale.x * 0.5, halfH = e.sprite.scale.y * 0.5, margin = 0.3;
+    const sideOff = side * Math.max(0, hExt - halfW - margin);
+    const upOff = -Math.max(0, vExt - halfH - margin);
+    _cardPos.copy(camera.position)
+      .addScaledVector(_camFwd, cardD)
+      .addScaledVector(_camRight, sideOff)
+      .addScaledVector(_camUp, upOff);
     // ease the card sliding out from the tomb to the foreground as it fades in
     const ease = e.cur * e.cur * (3 - 2 * e.cur);
     e.sprite.position.lerpVectors(_nodeTop, _cardPos, ease);
