@@ -75,7 +75,7 @@ const PARAMS = {
   bloomStrength: 0.40,
   bloomRadius: 0.42,
   bloomThreshold: 0.28,
-  camEase: 0.08,
+  camEase: 0.004,   // slow travelling between tombs (~95% slower than 0.08)
   idleFloat: 0.08,
   idleSpin: 1.40,
   focusBounce: 0.40,
